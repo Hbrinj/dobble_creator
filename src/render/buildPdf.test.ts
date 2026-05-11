@@ -86,4 +86,53 @@ describe('buildPdf', () => {
   it('throws on empty input', async () => {
     await expect(buildPdf([], a4Settings, null)).rejects.toThrow();
   });
+
+  describe('with a card-back image', () => {
+    it('interleaves a back page after each front page (4 pages for 7 cards)', async () => {
+      const bytes = await buildPdf(makeStubCards(7), a4Settings, {
+        pngBytes: ONE_PIXEL_PNG,
+      });
+      const doc = await PDFDocument.load(bytes);
+      // 2 front sheets + 2 back sheets
+      expect(doc.getPageCount()).toBe(4);
+    });
+
+    it('omits back pages when no back image is provided (already-tested-but-here-for-symmetry)', async () => {
+      const bytes = await buildPdf(makeStubCards(7), a4Settings, null);
+      const doc = await PDFDocument.load(bytes);
+      expect(doc.getPageCount()).toBe(2);
+    });
+
+    it('emits a back page even for a single-sheet deck (2 pages for 6 cards)', async () => {
+      const bytes = await buildPdf(makeStubCards(6), a4Settings, {
+        pngBytes: ONE_PIXEL_PNG,
+      });
+      const doc = await PDFDocument.load(bytes);
+      expect(doc.getPageCount()).toBe(2);
+    });
+
+    it('mirrors slot x-coordinates horizontally on the back page', async () => {
+      // Compare bytes: a single-card deck on a single sheet — front at slot 0,
+      // back is the same image at the mirrored slot. The image x-offset on the
+      // back page must be (pageWidth - frontX - imageWidth) ± rounding.
+      //
+      // We test indirectly via the public slot helper exposed for testing.
+      // (We expose `computeSlotsForTest` from the module for this purpose.)
+      const { _computeSlotsForTest, _mirrorSlotsForTest } = await import(
+        './buildPdf'
+      );
+      const slots = _computeSlotsForTest('A4', 85);
+      const mirrored = _mirrorSlotsForTest(slots, 'A4');
+      expect(slots.length).toBe(6);
+      const pageWidth = A4_WIDTH_PT;
+      for (let i = 0; i < slots.length; i++) {
+        const front = slots[i]!;
+        const back = mirrored[i]!;
+        expect(Math.abs(back.centreXPt - (pageWidth - front.centreXPt))).toBeLessThan(
+          0.01,
+        );
+        expect(back.centreYPt).toBeCloseTo(front.centreYPt, 5);
+      }
+    });
+  });
 });

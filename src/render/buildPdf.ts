@@ -142,6 +142,21 @@ const mirrorSlots = (
     cardRadiusPt: s.cardRadiusPt,
   }));
 
+/** Test-only export of the slot calculator. */
+export const _computeSlotsForTest = (
+  pageSize: PageSize,
+  cardDiameterMm: number,
+): SlotPosition[] => {
+  const { widthPt, heightPt } = PAGE_SIZES_PT[pageSize];
+  return computeSlots(widthPt, heightPt, mmToPt(cardDiameterMm) / 2);
+};
+
+/** Test-only export of the mirror transform. */
+export const _mirrorSlotsForTest = (
+  slots: readonly SlotPosition[],
+  pageSize: PageSize,
+): SlotPosition[] => mirrorSlots(slots, PAGE_SIZES_PT[pageSize].widthPt);
+
 type EmbeddedImage = Awaited<ReturnType<PDFDocument['embedPng']>>;
 type Page = ReturnType<PDFDocument['addPage']>;
 
