@@ -14,11 +14,11 @@ import {
   type ToggleIncludeEvent,
 } from './components/ThumbnailGrid';
 import { DeckSettings } from './components/DeckSettings';
+import { PrintSettings } from './components/PrintSettings';
 import {
   DEFAULT_PRINT_SETTINGS,
-  PrintSettings,
   type PrintSettingsValue,
-} from './components/PrintSettings';
+} from './components/printSettingsTypes';
 import { deckSize, pickOrder, SUPPORTED_PRIMES } from './lib/orderPicker';
 import { mulberry32 } from './lib/prng';
 import { generateIncidence } from './lib/incidence';
