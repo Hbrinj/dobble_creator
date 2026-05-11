@@ -50,7 +50,9 @@ const loadImage = (src: string): Promise<HTMLImageElement> =>
     img.src = src;
   });
 
-const canvasToPngBytes = (canvas: HTMLCanvasElement): Promise<Uint8Array> =>
+const canvasToPngBytes = (
+  canvas: HTMLCanvasElement,
+): Promise<Uint8Array<ArrayBuffer>> =>
   new Promise((resolve, reject) => {
     canvas.toBlob(async (blob) => {
       if (!blob) {
@@ -221,7 +223,12 @@ export function App(): JSX.Element {
         }
       : null;
     const bytes = await buildPdf(cards, pdfSettings, backImage);
-    const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
+    // Copy into a fresh ArrayBuffer-backed Uint8Array; pdf-lib's signature is
+    // `Uint8Array<ArrayBufferLike>` which Blob's BlobPart does not accept
+    // directly (SharedArrayBuffer is excluded). The copy keeps the type narrow.
+    const copy = new Uint8Array(bytes.byteLength);
+    copy.set(bytes);
+    const blob = new Blob([copy], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
