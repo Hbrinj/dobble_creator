@@ -403,4 +403,96 @@ describe('App integration: generate flow', () => {
     expect(downloadButton).toBeInTheDocument();
     expect(downloadButton).toBeEnabled();
   });
+
+  it('clears stale previews and re-enables the Generate button when canvas.toBlob fails mid-generate', async () => {
+    // First generate succeeds; the second generate fails after the first card
+    // has been rendered. Without the fix, the previous-batch preview URLs
+    // would already be revoked while renderedCards still referenced them —
+    // resulting in stale <img> tags pointing at revoked blob URLs. The fix
+    // is to reset renderedCards on the throw path.
+
+    // handleGenerate re-throws on failure, which surfaces as an unhandled
+    // rejection because it is invoked from a button onClick. Capture it on
+    // the Node process so Vitest does not flag the run with an error, while
+    // still asserting the UI recovers.
+    const capturedRejections: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => {
+      capturedRejections.push(reason);
+    };
+    process.on('unhandledRejection', onUnhandled);
+
+    try {
+      let toBlobCallCount = 0;
+      const cardsThroughFirstGenerate = 13;
+      HTMLCanvasElement.prototype.toBlob = function (
+        this: HTMLCanvasElement,
+        cb: BlobCallback,
+      ) {
+        toBlobCallCount += 1;
+        // The first generate produces `cardsThroughFirstGenerate` cards.
+        // The very next toBlob (first card of the second generate) is the
+        // one that fails — App's catch path must clear renderedCards.
+        if (toBlobCallCount === cardsThroughFirstGenerate + 1) {
+          // Simulate canvas.toBlob's documented "no blob produced" failure
+          // mode — App rejects with an Error and propagates.
+          cb(null);
+          return;
+        }
+        cb(new Blob([ONE_PIXEL_PNG_BYTES], { type: 'image/png' }));
+      };
+
+      const { App } = await import('./App');
+      render(<App />);
+
+      const zone = screen.getByRole('button', { name: /upload images/i });
+      await act(async () => {
+        dispatchDrop(zone, makeUploadFiles(13));
+        await flushMicrotasks();
+      });
+
+      // First generate succeeds and populates the preview gallery.
+      const generateButton = await screen.findByRole('button', {
+        name: /^generate$/i,
+      });
+      await act(async () => {
+        await userEvent.click(generateButton);
+        await flushMicrotasks();
+        await flushMicrotasks();
+      });
+      await waitFor(() => {
+        expect(screen.getAllByTestId('preview-card')).toHaveLength(13);
+      });
+
+      // Second generate: the first card's toBlob rejects mid-loop.
+      await act(async () => {
+        await userEvent.click(generateButton);
+        await flushMicrotasks();
+        await flushMicrotasks();
+        await flushMicrotasks();
+      });
+
+      // After the failure, the Generate button MUST return to idle (not
+      // stuck on "Generating…") and MUST be enabled again — `finally`
+      // clears isGenerating.
+      await waitFor(() => {
+        const btn = screen.getByRole('button', { name: /^generate$/i });
+        expect(btn).toBeEnabled();
+      });
+
+      // And the preview gallery MUST be empty — no stale <img> tags
+      // pointing at the previous batch's revoked blob URLs.
+      expect(screen.queryAllByTestId('preview-card')).toHaveLength(0);
+
+      // The failure was surfaced (caller / global error reporting still
+      // sees the original rejection).
+      await waitFor(() => {
+        expect(capturedRejections).toHaveLength(1);
+      });
+      const [reason] = capturedRejections;
+      expect(reason).toBeInstanceOf(Error);
+      expect((reason as Error).message).toMatch(/canvas\.toBlob/i);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
 });

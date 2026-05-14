@@ -186,34 +186,46 @@ export function App(): JSX.Element {
       for (const u of previewUrlsRef.current) URL.revokeObjectURL(u);
 
       const rendered: RenderedCard[] = [];
-      for (let cardIdx = 0; cardIdx < incidence.length; cardIdx++) {
-        const symbolIndices = incidence[cardIdx]!;
-        const packing = packCircles(symbolIndices.length, rng);
-        const rotations = symbolIndices.map(() => rng() * Math.PI * 2);
-        const canvas = document.createElement('canvas');
-        canvas.width = CARD_RENDER_PX;
-        canvas.height = CARD_RENDER_PX;
-        // Each card pulls images by symbol index (mod loaded count so every
-        // symbol resolves to one of the uploaded images).
-        const symbols = symbolIndices.map(
-          (s) => loadedImages[s % loadedImages.length]!,
-        );
-        drawCard(canvas, symbols, packing, rotations, {
-          diameterPx: CARD_RENDER_PX,
-          background: printSettings.background,
-          outline: true,
-        });
-        const pngBytes = await canvasToPngBytes(canvas);
-        const previewUrl = URL.createObjectURL(
-          new Blob([pngBytes], { type: 'image/png' }),
-        );
-        rendered.push({
-          id: `card-${cardIdx}`,
-          previewUrl,
-          pngBytes,
-        });
+      try {
+        for (let cardIdx = 0; cardIdx < incidence.length; cardIdx++) {
+          const symbolIndices = incidence[cardIdx]!;
+          const packing = packCircles(symbolIndices.length, rng);
+          const rotations = symbolIndices.map(() => rng() * Math.PI * 2);
+          const canvas = document.createElement('canvas');
+          canvas.width = CARD_RENDER_PX;
+          canvas.height = CARD_RENDER_PX;
+          // Each card pulls images by symbol index (mod loaded count so every
+          // symbol resolves to one of the uploaded images).
+          const symbols = symbolIndices.map(
+            (s) => loadedImages[s % loadedImages.length]!,
+          );
+          drawCard(canvas, symbols, packing, rotations, {
+            diameterPx: CARD_RENDER_PX,
+            background: printSettings.background,
+            outline: true,
+          });
+          const pngBytes = await canvasToPngBytes(canvas);
+          const previewUrl = URL.createObjectURL(
+            new Blob([pngBytes], { type: 'image/png' }),
+          );
+          rendered.push({
+            id: `card-${cardIdx}`,
+            previewUrl,
+            pngBytes,
+          });
+        }
+        setRenderedCards(rendered);
+      } catch (err) {
+        // Mid-loop failure: the previous batch's preview URLs were already
+        // revoked above, so leaving `renderedCards` referencing them would
+        // render broken <img src="blob:revoked"> tags. Revoke any URLs we
+        // managed to mint this run and clear the gallery so the UI returns
+        // to a clean state. Re-throw so callers/error reporting still see
+        // the failure.
+        for (const c of rendered) URL.revokeObjectURL(c.previewUrl);
+        setRenderedCards([]);
+        throw err;
       }
-      setRenderedCards(rendered);
     } finally {
       setIsGenerating(false);
     }
