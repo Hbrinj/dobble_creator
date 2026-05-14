@@ -265,80 +265,94 @@ export function App(): JSX.Element {
 
   const generateDisabled = order == null || isGenerating;
 
+  const hasImages = images.length > 0;
+
   return (
-    <main>
-      <h1>Dobble Card Generator</h1>
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col">
+      <header className="sticky top-0 z-10 bg-slate-900 border-b border-slate-800">
+        <div className="mx-auto max-w-5xl px-6 py-4">
+          <h1 className="text-2xl font-semibold">Dobble Card Generator</h1>
+        </div>
+      </header>
 
-      <UploadDropzone
-        onImagesAdded={handleImagesAdded}
-        onWarning={handleWarning}
-        onError={handleError}
-      />
-
-      {notices.length > 0 ? (
-        <ul className="notices" role="status" aria-live="polite">
-          {notices.map((n, i) => (
-            <li key={`${i}-${n}`}>{n}</li>
-          ))}
-        </ul>
-      ) : null}
-
-      {images.length > 0 ? (
-        <ThumbnailGrid
-          thumbnails={thumbnails}
-          includedCount={includedCount}
-          onReorder={handleReorder}
-          onToggleInclude={handleToggleInclude}
-          onRemove={handleRemoveImage}
+      <main className="mx-auto max-w-5xl w-full px-6 py-6 space-y-6 flex-1">
+        <UploadDropzone
+          onImagesAdded={handleImagesAdded}
+          onWarning={handleWarning}
+          onError={handleError}
         />
-      ) : null}
 
-      {order != null ? (
-        <DeckSettings
-          imageCount={images.length}
-          order={order}
-          seed={seed}
-          onOrderChange={handleOrderChange}
-          onSeedChange={setSeed}
+        {notices.length > 0 ? (
+          <ul className="notices" role="status" aria-live="polite">
+            {notices.map((n, i) => (
+              <li key={`${i}-${n}`}>{n}</li>
+            ))}
+          </ul>
+        ) : null}
+
+        {hasImages ? (
+          <ThumbnailGrid
+            thumbnails={thumbnails}
+            includedCount={includedCount}
+            onReorder={handleReorder}
+            onToggleInclude={handleToggleInclude}
+            onRemove={handleRemoveImage}
+          />
+        ) : null}
+
+        {order != null ? (
+          <DeckSettings
+            imageCount={images.length}
+            order={order}
+            seed={seed}
+            onOrderChange={handleOrderChange}
+            onSeedChange={setSeed}
+          />
+        ) : null}
+
+        <PrintSettings
+          value={printSettings}
+          backImage={backImageFile}
+          onChange={setPrintSettings}
+          onBackImageChange={setBackImageFile}
         />
+
+        {renderedCards.length > 0 ? (
+          <section aria-label="Preview" className="preview-gallery">
+            {renderedCards.map((c) => (
+              <img
+                key={c.id}
+                src={c.previewUrl}
+                alt="Dobble card preview"
+                data-testid="preview-card"
+              />
+            ))}
+          </section>
+        ) : null}
+      </main>
+
+      {hasImages ? (
+        <footer className="sticky bottom-0 bg-slate-900 border-t border-slate-800">
+          <div className="mx-auto max-w-5xl px-6 py-3 flex gap-3 justify-end">
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={renderedCards.length === 0}
+              className="rounded-lg px-4 py-2 font-medium transition-colors bg-slate-800 text-slate-100 border border-slate-700 hover:bg-slate-700 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2"
+            >
+              Download PDF
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={generateDisabled}
+              className="rounded-lg px-4 py-2 font-medium transition-colors bg-amber-500 text-slate-900 hover:bg-amber-400 disabled:bg-slate-700 disabled:text-slate-500 focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2"
+            >
+              {isGenerating ? 'Generating…' : 'Generate'}
+            </button>
+          </div>
+        </footer>
       ) : null}
-
-      <PrintSettings
-        value={printSettings}
-        backImage={backImageFile}
-        onChange={setPrintSettings}
-        onBackImageChange={setBackImageFile}
-      />
-
-      <div className="generate-bar">
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={generateDisabled}
-        >
-          {isGenerating ? 'Generating…' : 'Generate'}
-        </button>
-        <button
-          type="button"
-          onClick={handleDownloadPdf}
-          disabled={renderedCards.length === 0}
-        >
-          Download PDF
-        </button>
-      </div>
-
-      {renderedCards.length > 0 ? (
-        <section aria-label="Preview" className="preview-gallery">
-          {renderedCards.map((c) => (
-            <img
-              key={c.id}
-              src={c.previewUrl}
-              alt="Dobble card preview"
-              data-testid="preview-card"
-            />
-          ))}
-        </section>
-      ) : null}
-    </main>
+    </div>
   );
 }

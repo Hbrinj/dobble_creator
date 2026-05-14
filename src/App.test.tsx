@@ -209,6 +209,34 @@ describe('App integration: generate flow', () => {
     expect(revokeObjectURL).toHaveBeenCalledWith(removedUrl);
   });
 
+  it('hides the sticky action bar (Generate / Download PDF) when no images are uploaded', async () => {
+    const { App } = await import('./App');
+    render(<App />);
+    // Before any upload, neither Generate nor Download PDF should be rendered.
+    expect(
+      screen.queryByRole('button', { name: /^generate(?:…|\.\.\.)?$/i }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /download pdf/i }),
+    ).toBeNull();
+  });
+
+  it('shows the sticky action bar once at least one image is uploaded', async () => {
+    const { App } = await import('./App');
+    render(<App />);
+    const zone = screen.getByRole('button', { name: /upload images/i });
+    await act(async () => {
+      dispatchDrop(zone, makeUploadFiles(1));
+      await flushMicrotasks();
+    });
+    expect(
+      await screen.findByRole('button', { name: /^generate(?:…|\.\.\.)?$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /download pdf/i }),
+    ).toBeInTheDocument();
+  });
+
   it('disables the Generate button when fewer than 7 images are uploaded (edge case)', async () => {
     const { App } = await import('./App');
     render(<App />);

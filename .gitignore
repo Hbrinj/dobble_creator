@@ -20,3 +20,6 @@ test-results
 
 # TypeScript build cache
 *.tsbuildinfo
+
+# Vite dep optimisation cache
+.vite
