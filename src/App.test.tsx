@@ -209,6 +209,69 @@ describe('App integration: generate flow', () => {
     expect(revokeObjectURL).toHaveBeenCalledWith(removedUrl);
   });
 
+  it('Generate button shows a loading state while a generate is in flight', async () => {
+    // Hold the buildPdf-adjacent canvas.toBlob path open via a pending blob to
+    // simulate a slow render. We control resolution via a deferred Promise on
+    // canvas.toBlob — App's handleGenerate awaits each card's PNG bytes inside
+    // a loop, so the very first toBlob being deferred is enough to keep the
+    // Generate handler running.
+    let resolveFirstBlob: ((blob: Blob) => void) | null = null;
+    const firstBlobReady = new Promise<Blob>((resolve) => {
+      resolveFirstBlob = resolve;
+    });
+    let blobCount = 0;
+    HTMLCanvasElement.prototype.toBlob = function (
+      this: HTMLCanvasElement,
+      cb: BlobCallback,
+    ) {
+      blobCount += 1;
+      if (blobCount === 1) {
+        // Defer the first blob until the test resolves it.
+        firstBlobReady.then((blob) => cb(blob));
+      } else {
+        cb(new Blob([ONE_PIXEL_PNG_BYTES], { type: 'image/png' }));
+      }
+    };
+
+    const { App } = await import('./App');
+    render(<App />);
+    const zone = screen.getByRole('button', { name: /upload images/i });
+    await act(async () => {
+      dispatchDrop(zone, makeUploadFiles(13));
+      await flushMicrotasks();
+    });
+    const generateButton = await screen.findByRole('button', {
+      name: /^generate$/i,
+    });
+    await act(async () => {
+      await userEvent.click(generateButton);
+      await flushMicrotasks();
+    });
+
+    // Mid-flight: the button label changes to "Generating…" and disables.
+    const generatingButton = await screen.findByRole('button', {
+      name: /generating/i,
+    });
+    expect(generatingButton).toBeDisabled();
+    expect(generatingButton.textContent).toMatch(/generating/i);
+    // A spinner SVG (Loader2) is rendered alongside the label.
+    expect(generatingButton.querySelector('svg')).not.toBeNull();
+
+    // Resolve the first blob and let the rest of the render finish.
+    await act(async () => {
+      resolveFirstBlob?.(new Blob([ONE_PIXEL_PNG_BYTES], { type: 'image/png' }));
+      await flushMicrotasks();
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /^generate$/i }),
+      ).toBeEnabled();
+    });
+  });
+
   it('preview gallery renders within a titled card once previews exist', async () => {
     const { App } = await import('./App');
     render(<App />);

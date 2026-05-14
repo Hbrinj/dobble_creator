@@ -6,7 +6,7 @@ import {
   useState,
   type JSX,
 } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { UploadDropzone } from './components/UploadDropzone';
 import {
   ThumbnailGrid,
@@ -367,9 +367,19 @@ export function App(): JSX.Element {
               type="button"
               onClick={handleGenerate}
               disabled={generateDisabled}
-              className="rounded-lg px-4 py-2 font-medium transition-colors bg-amber-500 text-slate-900 hover:bg-amber-400 disabled:bg-slate-700 disabled:text-slate-500 focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2"
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 font-medium transition-colors bg-amber-500 text-slate-900 hover:bg-amber-400 disabled:bg-slate-700 disabled:text-slate-500 focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2"
             >
-              {isGenerating ? 'Generating…' : 'Generate'}
+              {isGenerating ? (
+                <>
+                  <Loader2
+                    aria-hidden="true"
+                    className="size-4 animate-spin"
+                  />
+                  Generating…
+                </>
+              ) : (
+                'Generate'
+              )}
             </button>
           </div>
         </footer>
