@@ -6,6 +6,7 @@ import {
   useState,
   type JSX,
 } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { UploadDropzone } from './components/UploadDropzone';
 import {
   ThumbnailGrid,
@@ -283,9 +284,18 @@ export function App(): JSX.Element {
         />
 
         {notices.length > 0 ? (
-          <ul className="notices" role="status" aria-live="polite">
+          <ul className="space-y-2" role="status" aria-live="polite">
             {notices.map((n, i) => (
-              <li key={`${i}-${n}`}>{n}</li>
+              <li
+                key={`${i}-${n}`}
+                className="flex items-center gap-2 rounded-md border bg-amber-500/10 border-amber-500/30 text-amber-200 text-sm px-3 py-2"
+              >
+                <AlertTriangle
+                  aria-hidden="true"
+                  className="size-4 shrink-0"
+                />
+                <span>{n}</span>
+              </li>
             ))}
           </ul>
         ) : null}

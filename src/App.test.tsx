@@ -209,6 +209,27 @@ describe('App integration: generate flow', () => {
     expect(revokeObjectURL).toHaveBeenCalledWith(removedUrl);
   });
 
+  it('renders notices as warning banners with an alert icon', async () => {
+    const { App } = await import('./App');
+    render(<App />);
+    const zone = screen.getByRole('button', { name: /upload images/i });
+    // Drop one unsupported file — this enqueues a notice in App state.
+    const unsupported = new File([new Uint8Array([1, 2, 3])], 'doc.pdf', {
+      type: 'application/pdf',
+    });
+    await act(async () => {
+      dispatchDrop(zone, [unsupported]);
+      await flushMicrotasks();
+    });
+    const list = await screen.findByRole('status');
+    const items = within(list).getAllByRole('listitem');
+    expect(items).toHaveLength(1);
+    const item = items[0]!;
+    expect(item.className).toContain('border-amber-500/30');
+    // AlertTriangle from lucide-react renders as an inline SVG.
+    expect(item.querySelector('svg')).not.toBeNull();
+  });
+
   it('hides the sticky action bar (Generate / Download PDF) when no images are uploaded', async () => {
     const { App } = await import('./App');
     render(<App />);
