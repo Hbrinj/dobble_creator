@@ -273,6 +273,8 @@ export function App(): JSX.Element {
   const generateDisabled = order == null || isGenerating;
 
   const hasImages = images.length > 0;
+  const hasRenderedCards = renderedCards.length > 0;
+  const showActionBar = hasImages || hasRenderedCards;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col">
@@ -355,7 +357,7 @@ export function App(): JSX.Element {
         ) : null}
       </main>
 
-      {hasImages ? (
+      {showActionBar ? (
         <footer className="sticky bottom-0 bg-slate-900 border-t border-slate-800">
           <div className="mx-auto max-w-5xl px-6 py-3 flex gap-3 justify-end">
             <button

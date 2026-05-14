@@ -356,4 +356,51 @@ describe('App integration: generate flow', () => {
     });
     expect(generateButton).toBeDisabled();
   });
+
+  it('keeps the Download PDF button reachable after the user removes every uploaded image post-generate', async () => {
+    const { App } = await import('./App');
+    render(<App />);
+
+    // Upload 13 images and generate so renderedCards is populated.
+    const zone = screen.getByRole('button', { name: /upload images/i });
+    await act(async () => {
+      dispatchDrop(zone, makeUploadFiles(13));
+      await flushMicrotasks();
+    });
+    const generateButton = await screen.findByRole('button', {
+      name: /^generate$/i,
+    });
+    await act(async () => {
+      await userEvent.click(generateButton);
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+    await waitFor(() => {
+      expect(screen.getAllByTestId('preview-card')).toHaveLength(13);
+    });
+
+    // Remove every uploaded image via the remove buttons on the thumbnail
+    // grid. After every removal the action bar should still be mounted,
+    // because renderedCards is still non-empty.
+    let remaining = screen.getAllByRole('listitem').length;
+    while (remaining > 0) {
+      const firstItem = screen.getAllByRole('listitem')[0]!;
+      const removeButton = within(firstItem).getByRole('button', {
+        name: /^remove /i,
+      });
+      await userEvent.click(removeButton);
+      remaining = screen.queryAllByRole('listitem').length;
+    }
+
+    // No thumbnails remain — but the previews and the Download PDF action
+    // bar MUST still be present so the user can grab the PDF they just
+    // generated.
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0);
+    expect(screen.getAllByTestId('preview-card')).toHaveLength(13);
+    const downloadButton = screen.getByRole('button', {
+      name: /download pdf/i,
+    });
+    expect(downloadButton).toBeInTheDocument();
+    expect(downloadButton).toBeEnabled();
+  });
 });
