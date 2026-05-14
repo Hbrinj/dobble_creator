@@ -37,7 +37,9 @@ export function UploadDropzone({
           continue;
         }
         if (file.size > LARGE_FILE_BYTES) {
-          warnings.push(`${file.name} is larger than 5MB and may slow rendering.`);
+          warnings.push(
+            `${file.name} is larger than 5MB and may slow rendering.`,
+          );
         }
         accepted.push(file);
       }
@@ -91,7 +93,7 @@ export function UploadDropzone({
   );
 
   const baseClasses =
-    'min-h-48 flex flex-col items-center justify-center gap-2 text-center px-6 py-8 border-2 border-dashed rounded-xl bg-slate-900 cursor-pointer transition-transform transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2';
+    'min-h-48 flex flex-col items-center justify-center gap-2 text-center px-6 py-8 border-2 border-dashed rounded-xl bg-slate-900 cursor-pointer transition-[transform,background-color,border-color] duration-150 focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2';
   const stateClasses = isDragOver
     ? 'border-amber-500 bg-amber-500/10 scale-[1.005]'
     : 'border-slate-700 hover:border-slate-500';

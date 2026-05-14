@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useRef,
-  type ChangeEvent,
-  type JSX,
-} from 'react';
+import { useCallback, useRef, type ChangeEvent, type JSX } from 'react';
 import {
   MAX_DIAMETER_MM,
   MIN_DIAMETER_MM,
@@ -34,7 +29,10 @@ export function PrintSettings({
   const backInputRef = useRef<HTMLInputElement>(null);
 
   const update = useCallback(
-    <K extends keyof PrintSettingsValue>(key: K, next: PrintSettingsValue[K]) => {
+    <K extends keyof PrintSettingsValue>(
+      key: K,
+      next: PrintSettingsValue[K],
+    ) => {
       onChange({ ...value, [key]: next });
     },
     [onChange, value],
@@ -64,7 +62,8 @@ export function PrintSettings({
   const handleBackgroundChange = useCallback(
     (event: ChangeEvent<HTMLSelectElement>) => {
       const next = event.target.value;
-      if (next === 'white' || next === 'transparent') update('background', next);
+      if (next === 'white' || next === 'transparent')
+        update('background', next);
     },
     [update],
   );

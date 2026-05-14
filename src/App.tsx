@@ -25,7 +25,11 @@ import { mulberry32 } from './lib/prng';
 import { generateIncidence } from './lib/incidence';
 import { packCircles } from './lib/packer';
 import { drawCard } from './render/drawCard';
-import { buildPdf, type CardImage, type PrintSettings as BuildPdfSettings } from './render/buildPdf';
+import {
+  buildPdf,
+  type CardImage,
+  type PrintSettings as BuildPdfSettings,
+} from './render/buildPdf';
 
 interface UploadedImage {
   readonly id: string;
@@ -217,7 +221,9 @@ export function App(): JSX.Element {
 
   const handleDownloadPdf = useCallback(async () => {
     if (renderedCards.length === 0) return;
-    const cards: CardImage[] = renderedCards.map((c) => ({ pngBytes: c.pngBytes }));
+    const cards: CardImage[] = renderedCards.map((c) => ({
+      pngBytes: c.pngBytes,
+    }));
     const pdfSettings: BuildPdfSettings = {
       pageSize: printSettings.pageSize,
       cardDiameterMm: printSettings.cardDiameterMm,
@@ -290,10 +296,7 @@ export function App(): JSX.Element {
                 key={`${i}-${n}`}
                 className="flex items-center gap-2 rounded-md border bg-amber-500/10 border-amber-500/30 text-amber-200 text-sm px-3 py-2"
               >
-                <AlertTriangle
-                  aria-hidden="true"
-                  className="size-4 shrink-0"
-                />
+                <AlertTriangle aria-hidden="true" className="size-4 shrink-0" />
                 <span>{n}</span>
               </li>
             ))}
@@ -371,10 +374,7 @@ export function App(): JSX.Element {
             >
               {isGenerating ? (
                 <>
-                  <Loader2
-                    aria-hidden="true"
-                    className="size-4 animate-spin"
-                  />
+                  <Loader2 aria-hidden="true" className="size-4 animate-spin" />
                   Generating…
                 </>
               ) : (

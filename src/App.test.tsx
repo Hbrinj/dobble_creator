@@ -259,16 +259,16 @@ describe('App integration: generate flow', () => {
 
     // Resolve the first blob and let the rest of the render finish.
     await act(async () => {
-      resolveFirstBlob?.(new Blob([ONE_PIXEL_PNG_BYTES], { type: 'image/png' }));
+      resolveFirstBlob?.(
+        new Blob([ONE_PIXEL_PNG_BYTES], { type: 'image/png' }),
+      );
       await flushMicrotasks();
       await flushMicrotasks();
       await flushMicrotasks();
     });
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /^generate$/i }),
-      ).toBeEnabled();
+      expect(screen.getByRole('button', { name: /^generate$/i })).toBeEnabled();
     });
   });
 
@@ -324,9 +324,7 @@ describe('App integration: generate flow', () => {
     expect(
       screen.queryByRole('button', { name: /^generate(?:…|\.\.\.)?$/i }),
     ).toBeNull();
-    expect(
-      screen.queryByRole('button', { name: /download pdf/i }),
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: /download pdf/i })).toBeNull();
   });
 
   it('shows the sticky action bar once at least one image is uploaded', async () => {

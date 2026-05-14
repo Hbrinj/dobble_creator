@@ -32,10 +32,7 @@ test('upload 13 images, generate, download a PDF', async ({ page }) => {
     'font-family',
     /Plus Jakarta Sans/,
   );
-  await expect(page.locator('header').first()).toHaveCSS(
-    'position',
-    'sticky',
-  );
+  await expect(page.locator('header').first()).toHaveCSS('position', 'sticky');
 
   // The dropzone exposes a hidden file input. Use Playwright's setInputFiles
   // on the input — robust across browsers and faster than synthesising drag-drop.
@@ -50,7 +47,9 @@ test('upload 13 images, generate, download a PDF', async ({ page }) => {
   await expect(thumbnailGrid).toHaveCSS('display', 'grid');
 
   // Generate. The button is disabled until enough images are queued.
-  const generate = page.getByRole('button', { name: /^generate(?:…|\.\.\.)?$/i });
+  const generate = page.getByRole('button', {
+    name: /^generate(?:…|\.\.\.)?$/i,
+  });
   await expect(generate).toBeEnabled({ timeout: 5000 });
   await generate.click();
 

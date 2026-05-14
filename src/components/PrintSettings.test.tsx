@@ -32,10 +32,18 @@ describe('PrintSettings', () => {
     expect(
       (screen.getByLabelText(/card diameter/i) as HTMLInputElement).value,
     ).toBe('85');
-    expect((screen.getByLabelText(/page size/i) as HTMLSelectElement).value).toBe('A4');
-    expect((screen.getByLabelText(/crop marks/i) as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByLabelText(/bleed/i) as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByLabelText(/background/i) as HTMLSelectElement).value).toBe('white');
+    expect(
+      (screen.getByLabelText(/page size/i) as HTMLSelectElement).value,
+    ).toBe('A4');
+    expect(
+      (screen.getByLabelText(/crop marks/i) as HTMLInputElement).checked,
+    ).toBe(true);
+    expect((screen.getByLabelText(/bleed/i) as HTMLInputElement).checked).toBe(
+      true,
+    );
+    expect(
+      (screen.getByLabelText(/background/i) as HTMLSelectElement).value,
+    ).toBe('white');
   });
 
   it('emits onChange with a new diameter when the slider changes', () => {
@@ -52,7 +60,10 @@ describe('PrintSettings', () => {
     // Range slider: fireEvent.change is the RTL-recommended path because
     // user-event has no real keyboard model for sliders.
     fireEvent.change(slider, { target: { value: '72' } });
-    expect(onChange).toHaveBeenCalledWith({ ...baseValue(), cardDiameterMm: 72 });
+    expect(onChange).toHaveBeenCalledWith({
+      ...baseValue(),
+      cardDiameterMm: 72,
+    });
   });
 
   it('emits onChange when crop marks are toggled', async () => {
@@ -95,8 +106,14 @@ describe('PrintSettings', () => {
         onBackImageChange={vi.fn()}
       />,
     );
-    await userEvent.selectOptions(screen.getByLabelText(/page size/i), 'Letter');
-    expect(onChange).toHaveBeenCalledWith({ ...baseValue(), pageSize: 'Letter' });
+    await userEvent.selectOptions(
+      screen.getByLabelText(/page size/i),
+      'Letter',
+    );
+    expect(onChange).toHaveBeenCalledWith({
+      ...baseValue(),
+      pageSize: 'Letter',
+    });
   });
 
   it('emits onChange when the background option changes', async () => {
@@ -150,7 +167,9 @@ describe('PrintSettings', () => {
         onBackImageChange={onBackImageChange}
       />,
     );
-    const removeButton = screen.getByRole('button', { name: /remove back image/i });
+    const removeButton = screen.getByRole('button', {
+      name: /remove back image/i,
+    });
     await userEvent.click(removeButton);
     expect(onBackImageChange).toHaveBeenCalledWith(null);
   });
