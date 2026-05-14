@@ -169,6 +169,24 @@ describe('drawCard', () => {
     expect(() => drawCard(canvas, [], [], [], baseOptions)).toThrow();
   });
 
+  it('falls back to a finite scale when the silhouette is degenerate (sil.r === 0)', () => {
+    // A 1×1 opaque PNG produces a single-point silhouette (r = 0). The
+    // silhouette-radius-based scale would be Infinity, which makes
+    // drawImage no-op or throw. drawCard must fall back to a finite scale
+    // (longer-edge-to-slot-diameter) so the draw still produces output.
+    const symbol = makeSymbol('degenerate', { cx: 0, cy: 0, r: 0 }, 1, 1);
+    const slot: PackedCircle = { x: 0, y: 0, r: 0.2 };
+    const { canvas, drawImageArgs } = makeStubCanvas(1000);
+    drawCard(canvas, [symbol], [slot], [0], baseOptions);
+    expect(drawImageArgs).toHaveLength(1);
+    const [, drawX, drawY, drawW, drawH] = drawImageArgs[0]!;
+    for (const v of [drawX, drawY, drawW, drawH]) {
+      expect(Number.isFinite(v as number)).toBe(true);
+    }
+    expect(drawW as number).toBeGreaterThan(0);
+    expect(drawH as number).toBeGreaterThan(0);
+  });
+
   it("draws each image scaled and positioned so its silhouette circle maps to the slot circle", () => {
     // Single-slot fixture: slot at (0.3, 0.4) with radius 0.2 in parent-unit
     // frame (parent radius = 1). On a 1000px canvas the slot maps to:

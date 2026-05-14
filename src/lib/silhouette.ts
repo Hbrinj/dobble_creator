@@ -120,7 +120,10 @@ const extractContourPoints = (
   return points;
 };
 
-/** Mulberry32 — small, deterministic 32-bit PRNG. */
+/**
+ * Small deterministic 32-bit PRNG (Mulberry32 variant) used only to shuffle
+ * the Welzl input order in a reproducible way — no cryptographic claims.
+ */
 const makeLcg = (seed: number): (() => number) => {
   let s = seed | 0;
   return () => {

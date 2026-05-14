@@ -108,10 +108,17 @@ const drawSingleSymbol = (
   // silhouette circle (normalised in [0, 1] image space) maps exactly to the
   // slot circle. After translate(cx, cy) and rotate(rotation), the origin
   // sits at the slot centre — so the drawImage offsets are expressed
-  // relative to that centre.
+  // relative to that centre. Degenerate case: an image whose silhouette
+  // collapses to a single point (sil.r === 0, e.g. a 1×1 opaque PNG) has no
+  // meaningful "fit by silhouette" — fall back to fitting the longer image
+  // edge to the slot diameter so the draw still produces visible output
+  // rather than an Infinity-scaled no-op.
   const sil = symbol.silhouette;
   const silRadiusPx = sil.r * symbol.width;
-  const scale = slotRadiusPx / silRadiusPx;
+  const scale =
+    silRadiusPx > 0
+      ? slotRadiusPx / silRadiusPx
+      : (slotRadiusPx * 2) / Math.max(symbol.width, symbol.height);
   const drawW = symbol.width * scale;
   const drawH = symbol.height * scale;
   const drawX = -sil.cx * symbol.width * scale;
