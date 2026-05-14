@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { drawCard, type DrawCardOptions, type SymbolImage } from './drawCard';
 import type { PackedCircle } from '../lib/packer';
 
+const DEFAULT_SILHOUETTE = { cx: 0.5, cy: 0.5, r: 0.5 } as const;
+
 /**
  * Build a minimal stub of CanvasRenderingContext2D that records every call.
  * jsdom does not implement a real canvas, so we use a hand-rolled spy.
@@ -57,8 +59,13 @@ const makeStubCanvas = (
   return { canvas, ctx: stub.ctx, calls: stub.calls, drawImageArgs: stub.drawImageArgs };
 };
 
-const makeSymbol = (name: string): SymbolImage =>
-  ({ tag: name, width: 100, height: 100 }) as unknown as SymbolImage;
+const makeSymbol = (
+  name: string,
+  silhouette: { cx: number; cy: number; r: number } = DEFAULT_SILHOUETTE,
+  width = 100,
+  height = 100,
+): SymbolImage =>
+  ({ tag: name, width, height, silhouette }) as unknown as SymbolImage;
 
 const stubPacking: PackedCircle[] = [
   { x: -0.4, y: -0.3, r: 0.3 },
@@ -160,5 +167,44 @@ describe('drawCard', () => {
       getContext: () => null,
     } as unknown as HTMLCanvasElement;
     expect(() => drawCard(canvas, [], [], [], baseOptions)).toThrow();
+  });
+
+  it("draws each image scaled and positioned so its silhouette circle maps to the slot circle", () => {
+    // Single-slot fixture: slot at (0.3, 0.4) with radius 0.2 in parent-unit
+    // frame (parent radius = 1). On a 1000px canvas the slot maps to:
+    //   slotCxPx = 500 + 0.3 * 500 = 650
+    //   slotCyPx = 500 + 0.4 * 500 = 700
+    //   slotRPx  = 0.2 * 500       = 100
+    const naturalWidth = 200;
+    const naturalHeight = 240;
+    const silhouette = { cx: 0.4, cy: 0.6, r: 0.25 };
+    const symbol = makeSymbol('s', silhouette, naturalWidth, naturalHeight);
+    const slot: PackedCircle = { x: 0.3, y: 0.4, r: 0.2 };
+
+    const { canvas, drawImageArgs } = makeStubCanvas(1000);
+    drawCard(canvas, [symbol], [slot], [0], baseOptions);
+
+    expect(drawImageArgs).toHaveLength(1);
+    const [src, drawX, drawY, drawW, drawH] = drawImageArgs[0]!;
+    void src;
+    // Expected per Decision 10 (in the post-translate/rotate local frame —
+    // ctx.translate(slotCx, slotCy) and ctx.rotate(0) leave the origin at
+    // the slot centre, so drawImage receives offsets relative to (slotCx,
+    // slotCy)):
+    //   scale = slotRPx / (silhouette.r * naturalWidth)
+    //   drawX = -silhouette.cx * naturalWidth  * scale
+    //   drawY = -silhouette.cy * naturalHeight * scale
+    //   drawW =  naturalWidth  * scale
+    //   drawH =  naturalHeight * scale
+    const slotRPx = slot.r * 500;
+    const scale = slotRPx / (silhouette.r * naturalWidth);
+    const expectedDrawX = -silhouette.cx * naturalWidth * scale;
+    const expectedDrawY = -silhouette.cy * naturalHeight * scale;
+    const expectedDrawW = naturalWidth * scale;
+    const expectedDrawH = naturalHeight * scale;
+    expect(drawX as number).toBeCloseTo(expectedDrawX, 5);
+    expect(drawY as number).toBeCloseTo(expectedDrawY, 5);
+    expect(drawW as number).toBeCloseTo(expectedDrawW, 5);
+    expect(drawH as number).toBeCloseTo(expectedDrawH, 5);
   });
 });

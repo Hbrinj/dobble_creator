@@ -1,13 +1,20 @@
 import type { PackedCircle } from '../lib/packer';
+import type { SilhouetteCircle } from '../lib/silhouette';
 
 /**
  * The subset of HTMLImageElement / ImageBitmap surface that drawCard needs.
  * Accepting a structural type lets tests pass stubs and the production code
- * pass `HTMLImageElement` or `ImageBitmap` directly.
+ * pass `HTMLImageElement` or `ImageBitmap` directly. `silhouette` carries the
+ * pre-computed smallest-enclosing-circle of the opaque pixel set in
+ * normalised image-space (cx/cy normalised to width/height respectively, r
+ * normalised to width). It is required: Decision 8 routes every silhouette
+ * extraction failure to upload rejection, so any image reaching this renderer
+ * is guaranteed to carry one.
  */
 export interface SymbolImage {
   readonly width: number;
   readonly height: number;
+  readonly silhouette: SilhouetteCircle;
 }
 
 export type CardBackground = 'white' | 'transparent';
@@ -96,7 +103,19 @@ const drawSingleSymbol = (
   const cx = radiusPx + slot.x * radiusPx;
   const cy = radiusPx + slot.y * radiusPx;
   const slotRadiusPx = slot.r * radiusPx;
-  const sideLen = slotRadiusPx * 2;
+
+  // Silhouette mapping (Decision 10): scale and position the image so its
+  // silhouette circle (normalised in [0, 1] image space) maps exactly to the
+  // slot circle. After translate(cx, cy) and rotate(rotation), the origin
+  // sits at the slot centre — so the drawImage offsets are expressed
+  // relative to that centre.
+  const sil = symbol.silhouette;
+  const silRadiusPx = sil.r * symbol.width;
+  const scale = slotRadiusPx / silRadiusPx;
+  const drawW = symbol.width * scale;
+  const drawH = symbol.height * scale;
+  const drawX = -sil.cx * symbol.width * scale;
+  const drawY = -sil.cy * symbol.height * scale;
 
   ctx.save();
   ctx.beginPath();
@@ -109,10 +128,10 @@ const drawSingleSymbol = (
   // or ImageBitmap; in tests they pass a stub. We only rely on width/height.
   ctx.drawImage(
     symbol as unknown as CanvasImageSource,
-    -slotRadiusPx,
-    -slotRadiusPx,
-    sideLen,
-    sideLen,
+    drawX,
+    drawY,
+    drawW,
+    drawH,
   );
   ctx.restore();
 };

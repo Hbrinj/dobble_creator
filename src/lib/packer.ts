@@ -23,7 +23,7 @@ export interface PackedCircle {
 const MAX_ITERATIONS = 600;
 const STOP_THRESHOLD = 1e-5;
 /** Target fraction of parent disc area that the child circles together occupy. */
-const PACKING_FRACTION = 0.55;
+const PACKING_FRACTION = 0.65;
 /** Spread in child radii: r in [base * (1 - SPREAD), base * (1 + SPREAD)]. */
 const RADIUS_SPREAD = 0.25;
 

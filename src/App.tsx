@@ -218,9 +218,17 @@ export function App(): JSX.Element {
       const cardsNeeded = incidence.length;
       const includedImages = images.slice(0, cardsNeeded);
 
-      // Load all images first so we can synchronously draw afterwards.
+      // Load all images first so we can synchronously draw afterwards. Tag
+      // each HTMLImageElement with its pre-computed silhouette so drawCard
+      // can map the image's opaque region onto the slot circle (Decision 10).
+      // We attach silhouette as a property on the element itself so the
+      // CanvasImageSource cast inside drawCard still resolves to a real
+      // drawable at runtime.
       const loadedImages = await Promise.all(
-        includedImages.map((img) => loadImage(img.url)),
+        includedImages.map(async (img) => {
+          const element = await loadImage(img.url);
+          return Object.assign(element, { silhouette: img.silhouette });
+        }),
       );
 
       // Revoke previous preview URLs before replacing.
