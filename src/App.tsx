@@ -328,15 +328,26 @@ export function App(): JSX.Element {
         />
 
         {renderedCards.length > 0 ? (
-          <section aria-label="Preview" className="preview-gallery">
-            {renderedCards.map((c) => (
-              <img
-                key={c.id}
-                src={c.previewUrl}
-                alt="Dobble card preview"
-                data-testid="preview-card"
-              />
-            ))}
+          <section
+            aria-label="Preview"
+            className="bg-slate-900 rounded-xl p-6 border border-slate-800"
+          >
+            <h2 className="text-lg font-semibold mb-4">Preview</h2>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+              {renderedCards.map((c) => (
+                <div
+                  key={c.id}
+                  className="bg-slate-800 rounded-lg p-3 border border-slate-700 aspect-square"
+                >
+                  <img
+                    src={c.previewUrl}
+                    alt="Dobble card preview"
+                    data-testid="preview-card"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              ))}
+            </div>
           </section>
         ) : null}
       </main>

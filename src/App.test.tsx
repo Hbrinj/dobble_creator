@@ -209,6 +209,30 @@ describe('App integration: generate flow', () => {
     expect(revokeObjectURL).toHaveBeenCalledWith(removedUrl);
   });
 
+  it('preview gallery renders within a titled card once previews exist', async () => {
+    const { App } = await import('./App');
+    render(<App />);
+    const zone = screen.getByRole('button', { name: /upload images/i });
+    await act(async () => {
+      dispatchDrop(zone, makeUploadFiles(13));
+      await flushMicrotasks();
+    });
+    const generateButton = await screen.findByRole('button', {
+      name: /generate/i,
+    });
+    await act(async () => {
+      await userEvent.click(generateButton);
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+    await waitFor(() => {
+      expect(screen.getAllByTestId('preview-card')).toHaveLength(13);
+    });
+    expect(
+      screen.getByRole('heading', { level: 2, name: /preview/i }),
+    ).toBeInTheDocument();
+  });
+
   it('renders notices as warning banners with an alert icon', async () => {
     const { App } = await import('./App');
     render(<App />);
