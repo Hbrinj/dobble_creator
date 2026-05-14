@@ -1,7 +1,7 @@
 # Checkpoint: prettify-ui
 
 ## Status
-Step 2 — Implement — COMPLETE (PR #3 open: https://github.com/Hbrinj/dobble_creator/pull/3)
+Step 2 — Implement — COMPLETE & MERGED (PR #3 merged 2026-05-14 as commit `35e6945`)
 
 ## Completed steps
 - [x] Step 1 — Plan
