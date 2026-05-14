@@ -1,11 +1,11 @@
 # Checkpoint: prettify-ui
 
 ## Status
-Step 2 — Implement — IN PROGRESS (slices 1–8 + 3 review-fix commits committed; awaiting coordinator review gate and user approval to open PR)
+Step 2 — Implement — COMPLETE (PR #3 open: https://github.com/Hbrinj/dobble_creator/pull/3)
 
 ## Completed steps
 - [x] Step 1 — Plan
-- [ ] Step 2 — Implement
+- [x] Step 2 — Implement
 
 ## Resumption notes
 
@@ -66,9 +66,7 @@ These all become candidates for a follow-up polish slice or for `/TODO.md` if ac
 None.
 
 ### When resuming
-1. Read this checkpoint and confirm with the user before proceeding.
-2. Verify the latest reviewer re-runs (`code-reviewer` + `general-reviewer`) returned APPROVE on HEAD; if either still has CRITICAL/MAJOR findings, address them before proceeding.
-3. Once both reviewers APPROVE, append the `features/all_features.md` row (status `In Review`), present the implementation-complete review gate to the user, and on approval push the branch and open the PR with `tasks/prettify-ui.md` as the description.
+PR #3 is open and awaiting review/merge. The only repo workflow (`deploy.yml`) runs on `push: main`, not on PRs, so there are no PR checks to monitor — deploy fires automatically after merge to `main`. Next coordinator action is to update this checkpoint and the `features/all_features.md` row once the PR merges (status → `Merged`, fill in merge date).
 
 ## Last updated
 2026-05-14
