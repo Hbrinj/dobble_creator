@@ -88,15 +88,30 @@ export function DeckSettings({
 
   const orderSelectorDisabled = validOrders.length <= 1;
 
+  const selectClasses =
+    'bg-slate-800 border border-slate-700 rounded-md text-slate-100 px-2 py-1 disabled:opacity-50 focus:outline-2 focus:outline-amber-500 focus:outline-offset-1';
+  const textInputClasses =
+    'bg-slate-800 border border-slate-700 rounded-md text-slate-100 px-2 py-1 font-mono focus:outline-2 focus:outline-amber-500 focus:outline-offset-1';
+  const ghostButtonClasses =
+    'rounded-lg px-3 py-1.5 text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2';
+
   return (
-    <section className="deck-settings" aria-label="Deck settings">
-      <div className="deck-settings__row">
-        <label htmlFor="deck-settings-order">Deck order (n)</label>
+    <section
+      aria-label="Deck settings"
+      className="bg-slate-900 rounded-xl p-6 border border-slate-800"
+    >
+      <h2 className="text-lg font-semibold mb-4">Deck Options</h2>
+
+      <div className="flex items-center gap-3 mb-3">
+        <label htmlFor="deck-settings-order" className="text-slate-200">
+          Deck order (n)
+        </label>
         <select
           id="deck-settings-order"
           value={String(order)}
           onChange={handleOrderChange}
           disabled={orderSelectorDisabled}
+          className={selectClasses}
         >
           {validOrders.map((n) => (
             <option key={n} value={String(n)}>
@@ -106,16 +121,23 @@ export function DeckSettings({
         </select>
       </div>
 
-      <div className="deck-settings__row">
-        <label htmlFor="deck-settings-seed">Seed</label>
+      <div className="flex items-center gap-3">
+        <label htmlFor="deck-settings-seed" className="text-slate-200">
+          Seed
+        </label>
         <input
           id="deck-settings-seed"
           type="text"
           inputMode="numeric"
           value={seedDraft}
           onChange={handleSeedChange}
+          className={textInputClasses}
         />
-        <button type="button" onClick={handleReroll}>
+        <button
+          type="button"
+          onClick={handleReroll}
+          className={ghostButtonClasses}
+        >
           Re-roll
         </button>
       </div>
