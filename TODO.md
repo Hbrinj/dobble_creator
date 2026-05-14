@@ -19,3 +19,15 @@ Items deferred as out-of-scope from feature planning. Triage manually.
 | Replace the visible card-back `<input type="file">` OS-rendered button with a hidden input + styled button + filename display | Decision 11 — natives only this pass | Decision 11 | 2026-05-14 | Open |
 | Empty-state copy / illustration when zero thumbnails have been uploaded yet | Out of scope — relies on existing conditional rendering | — | 2026-05-14 | Open |
 | Sticky bottom-bar internal layout fine-tuning (Generate left / Download right, split, or both right) | Cosmetic-leaf — developer agent picks in Slice 1 | Decision 8 | 2026-05-14 | Open |
+
+## From card-packing investigation
+| Item | Why deferred | Related decision | Added | Status |
+|------|--------------|------------------|-------|--------|
+| Silhouette-polygon packing with no-fit-polygon (NFP) solver — compute convex/alpha hull per image and use simulated annealing or gravity relaxation to pack actual shapes rather than bounding circles | Heavy: NFP is NP-hard, needs an iterative solver, real runtime/complexity cost per card. Try the cheap auto-crop + true-radius-circle pass first; revisit only if it isn't enough | — | 2026-05-14 | Open |
+
+## From feature/alpha-aware-packing
+| Item | Why deferred | Related decision | Added | Status |
+|------|--------------|------------------|-------|--------|
+| Card-back image silhouette geometry | Card-back is drawn full-bleed by `buildPdf` and never passes through `packCircles` or `drawCard`'s slot loop — no consumer for silhouette data | Decision 12 | 2026-05-14 | Open |
+| Convergence-aware packer reporting (return a flag / throw / log when 600-iteration relaxation doesn't settle) and follow-on tuning of `PACKING_FRACTION` from 0.65 toward 0.70 / 0.75 | The packer at `packer.ts:43-49` silently returns unconverged (overlapping) circles. Adding explicit non-convergence signalling unlocks pushing density beyond 0.65 without risk, but is a separate, packer-internal change with its own grilling + tests | Decision 10 | 2026-05-14 | Open |
+| Per-image silhouette debug overlay (visualise the silhouette circle on each thumbnail or rendered card) | Useful for sanity-checking Welzl results visually but not necessary for the user-facing fix; can land later if silhouette quality regressions appear | — | 2026-05-14 | Open |
