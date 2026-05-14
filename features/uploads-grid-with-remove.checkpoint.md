@@ -1,7 +1,7 @@
 # Checkpoint: uploads-grid-with-remove
 
 ## Status
-Step 2 — Implement — COMPLETE (PR open: https://github.com/Hbrinj/dobble_creator/pull/2)
+Merged — PR #2 (https://github.com/Hbrinj/dobble_creator/pull/2) merged into main on 2026-05-14 as `a4cfe02`.
 
 ## Completed steps
 - [x] Step 1 — Plan
@@ -25,6 +25,11 @@ Deviations from plan:
 - Slice 1 disambiguated two existing `getByRole('button')` queries in `ThumbnailGrid.test.tsx` with explicit `name:` matchers (a second sibling button per `<li>` made the unscoped queries ambiguous).
 
 Playwright was NOT executed — user runs `npm run e2e` locally. Spec compiles cleanly under `e2e/tsconfig.json`.
+
+## Post-merge follow-ups (deferred during review)
+- `src/App.tsx` `handleRemoveImage` revokes inside the `setImages` updater — refactor to mirror `images` in a `useRef` and revoke outside the updater (cleaner under StrictMode; functional impact zero).
+- `src/components/ThumbnailGrid.css` hard-codes hex colours — fold into a design-token system if/when one is introduced.
+- `e2e/happy-path.spec.ts:34` — drop the redundant `toBeVisible()` before `toHaveCSS('display', 'grid')`.
 
 ## Last updated
 2026-05-14
