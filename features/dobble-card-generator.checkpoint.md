@@ -1,18 +1,26 @@
 # Checkpoint: dobble-card-generator
 
 ## Status
-Step 1 — Plan — COMPLETE
+Step 2 — Implement — COMPLETE (PR opened, awaiting merge)
 
 ## Completed steps
 - [x] Step 1 — Plan
-- [ ] Step 2 — Implement
+- [x] Step 2 — Implement
+  - [x] Branch
+  - [x] Code + self-review (code-reviewer: APPROVE, 1 cycle)
+  - [x] File-type routing gate (general-reviewer: APPROVE, 0 cycles needed)
+  - [x] Feature log row appended
+  - [x] Push to origin
+  - [x] Review gate approved
+  - [x] PR opened: https://github.com/Hbrinj/dobble_creator/pull/1
+  - [ ] Pipeline — no PR-time CI workflow (deferred MINOR from general-reviewer); deploy.yml runs on push to main after merge
 
 ## Resumption notes
-- Plan written to `tasks/dobble-card-generator.md` with 16 decisions and 15 TDD slices.
-- Deferred items consolidated to `/TODO.md`.
-- Awaiting user approval of the plan before invoking the developer agent.
-- No architectural-impact review was triggered — this is a greenfield static SPA with no architectural risk.
-- Developer-agent routing for Step 2: no exact stack match (React + TypeScript). Closest fit is **none of the listed developer agents**. Need to either (a) use a generic developer agent / claude default, or (b) confirm with user how to route. Flag this before Step 2.
+- Repo: https://github.com/Hbrinj/dobble_creator (public, GitHub Pages deploy workflow on push to main).
+- PR #1 awaits merge. After merge, the deploy workflow publishes the static site to GitHub Pages.
+- GitHub Pages must be enabled in repo settings (Source: GitHub Actions) before the first deploy can succeed — not yet done.
+- Local dev requires Node 20+; user's machine did not have npm at push time.
+- All deferred reviewer findings (MINOR/SUGGESTION) are catalogued in the previous coordinator report and the original code-reviewer / general-reviewer output.
 
 ## Last updated
 2026-05-11
