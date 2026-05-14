@@ -25,6 +25,12 @@ import { mulberry32 } from './lib/prng';
 import { generateIncidence } from './lib/incidence';
 import { packCircles } from './lib/packer';
 import { drawCard } from './render/drawCard';
+import { extractAlphaMask } from './lib/imageAlpha';
+import {
+  computeSilhouetteCircle,
+  EmptySilhouetteError,
+  type SilhouetteCircle,
+} from './lib/silhouette';
 import {
   buildPdf,
   type CardImage,
@@ -36,6 +42,7 @@ interface UploadedImage {
   readonly file: File;
   readonly url: string;
   readonly name: string;
+  readonly silhouette: SilhouetteCircle;
 }
 
 interface RenderedCard {
@@ -131,16 +138,50 @@ export function App(): JSX.Element {
     };
   }, []);
 
-  const handleImagesAdded = useCallback((files: readonly File[]) => {
-    setImages((current) => {
-      const additions: UploadedImage[] = files.map((f, i) => ({
-        id: `img-${Date.now()}-${current.length + i}-${f.name}`,
-        file: f,
-        url: URL.createObjectURL(f),
-        name: f.name,
-      }));
-      return [...current, ...additions];
-    });
+  const handleImagesAdded = useCallback(async (files: readonly File[]) => {
+    // Parallel silhouette extraction; commit successes + per-file notices in
+    // one batch (Decision 9 — sync-then-add UX).
+    const results = await Promise.allSettled(
+      files.map(async (f) => {
+        const { width, height, alpha } = await extractAlphaMask(f);
+        const silhouette = computeSilhouetteCircle(alpha, width, height);
+        return { file: f, silhouette };
+      }),
+    );
+
+    const accepted: { file: File; silhouette: SilhouetteCircle }[] = [];
+    const rejections: string[] = [];
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i]!;
+      const file = files[i]!;
+      if (result.status === 'fulfilled') {
+        accepted.push(result.value);
+      } else if (result.reason instanceof EmptySilhouetteError) {
+        rejections.push(
+          `${file.name}: this image has no visible content — nothing would print.`,
+        );
+      } else {
+        rejections.push(
+          `${file.name}: could not read image silhouette — file may be corrupt or unsupported.`,
+        );
+      }
+    }
+
+    if (accepted.length > 0) {
+      setImages((current) => {
+        const additions: UploadedImage[] = accepted.map((a, i) => ({
+          id: `img-${Date.now()}-${current.length + i}-${a.file.name}`,
+          file: a.file,
+          url: URL.createObjectURL(a.file),
+          name: a.file.name,
+          silhouette: a.silhouette,
+        }));
+        return [...current, ...additions];
+      });
+    }
+    if (rejections.length > 0) {
+      setNotices((current) => [...current, ...rejections]);
+    }
   }, []);
 
   const handleWarning = useCallback((msg: string) => {

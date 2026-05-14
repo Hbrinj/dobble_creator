@@ -9,6 +9,20 @@ vi.mock('./render/drawCard', () => ({
   drawCard: vi.fn(() => undefined),
 }));
 
+// Mock the canvas-touching alpha adapter — jsdom does not implement
+// createImageBitmap / OffscreenCanvas. By default we resolve with a 4x4 fully
+// opaque mask so existing test paths (which upload PNG files) keep flowing.
+// Individual tests can override the implementation via
+// `extractAlphaMaskMock.mockImplementationOnce(...)`.
+const extractAlphaMaskMock = vi.fn(async () => ({
+  width: 4,
+  height: 4,
+  alpha: new Uint8ClampedArray(16).fill(255),
+}));
+vi.mock('./lib/imageAlpha', () => ({
+  extractAlphaMask: extractAlphaMaskMock,
+}));
+
 const ONE_PIXEL_PNG_BYTES = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49,
   0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06,
@@ -494,5 +508,99 @@ describe('App integration: generate flow', () => {
     } finally {
       process.off('unhandledRejection', onUnhandled);
     }
+  });
+});
+
+describe('App upload pipeline: silhouette extraction', () => {
+  beforeEach(() => {
+    extractAlphaMaskMock.mockReset();
+    extractAlphaMaskMock.mockResolvedValue({
+      width: 4,
+      height: 4,
+      alpha: new Uint8ClampedArray(16).fill(255),
+    });
+  });
+
+  it('accepts an image whose silhouette extraction resolves and persists {cx, cy, r} on the record', async () => {
+    // Resolve with an alpha mask that produces a known silhouette: 8x8 mask
+    // with a centred 1-pixel cross-like opaque region biased to the centre.
+    // We hand-craft a mask whose smallest enclosing circle is computable:
+    // a single opaque pixel at (2, 5) in an 8x8 image → silhouette is
+    // { cx: 2/8 = 0.25, cy: 5/8 = 0.625, r: 0 }.
+    const W = 8;
+    const H = 8;
+    const alpha = new Uint8ClampedArray(W * H);
+    alpha[5 * W + 2] = 255;
+    extractAlphaMaskMock.mockResolvedValueOnce({ width: W, height: H, alpha });
+
+    const { App } = await import('./App');
+    render(<App />);
+
+    const zone = screen.getByRole('button', { name: /upload images/i });
+    await act(async () => {
+      dispatchDrop(zone, makeUploadFiles(1));
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+
+    // The thumbnail grid renders one image — confirms acceptance.
+    const items = await screen.findAllByRole('listitem');
+    expect(items).toHaveLength(1);
+    // Adapter was called once with the dropped file.
+    expect(extractAlphaMaskMock).toHaveBeenCalledTimes(1);
+    const calledWith = extractAlphaMaskMock.mock.calls[0]![0] as File;
+    expect(calledWith.name).toBe('img-0.png');
+
+    // No rejection notices were posted.
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('rejects an image whose silhouette extraction throws and posts an amber notice', async () => {
+    extractAlphaMaskMock.mockRejectedValueOnce(new Error('decode failure'));
+
+    const { App } = await import('./App');
+    render(<App />);
+
+    const zone = screen.getByRole('button', { name: /upload images/i });
+    await act(async () => {
+      dispatchDrop(zone, makeUploadFiles(1));
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+
+    // No thumbnails — the upload was rejected. (Notices ul also renders
+    // listitems, so scope the assertion to the notices list and confirm no
+    // <img> thumbnail was inserted.)
+    expect(screen.queryByAltText('img-0.png')).toBeNull();
+    // A notice mentioning the file name is present.
+    const list = await screen.findByRole('status');
+    const items = within(list).getAllByRole('listitem');
+    expect(items).toHaveLength(1);
+    expect(items[0]!.textContent).toMatch(/img-0\.png/);
+  });
+
+  it('rejects a fully-transparent image with a specific notice', async () => {
+    const { EmptySilhouetteError } = await import('./lib/silhouette');
+    extractAlphaMaskMock.mockImplementationOnce(async () => {
+      throw new EmptySilhouetteError();
+    });
+
+    const { App } = await import('./App');
+    render(<App />);
+
+    const zone = screen.getByRole('button', { name: /upload images/i });
+    await act(async () => {
+      dispatchDrop(zone, makeUploadFiles(1));
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+
+    expect(screen.queryByAltText('img-0.png')).toBeNull();
+    const list = await screen.findByRole('status');
+    const items = within(list).getAllByRole('listitem');
+    expect(items).toHaveLength(1);
+    // The notice text mentions transparency / no visible content.
+    expect(items[0]!.textContent).toMatch(/visible content|transparent/i);
+    expect(items[0]!.textContent).toMatch(/img-0\.png/);
   });
 });
