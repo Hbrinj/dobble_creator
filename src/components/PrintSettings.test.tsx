@@ -155,6 +155,20 @@ describe('PrintSettings', () => {
     expect(onBackImageChange).toHaveBeenCalledWith(null);
   });
 
+  it('renders within a titled card with a "Print Options" h2', () => {
+    render(
+      <PrintSettings
+        value={baseValue()}
+        backImage={null}
+        onChange={vi.fn()}
+        onBackImageChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole('heading', { level: 2, name: /print options/i }),
+    ).toBeInTheDocument();
+  });
+
   it('clamps card diameter to the 60–100 mm range (edge case)', () => {
     render(
       <PrintSettings

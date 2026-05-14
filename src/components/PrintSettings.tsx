@@ -94,10 +94,22 @@ export function PrintSettings({
     if (backInputRef.current) backInputRef.current.value = '';
   }, [onBackImageChange]);
 
+  const rowClasses = 'flex items-center gap-3 flex-wrap';
+  const labelClasses = 'text-slate-200';
+  const selectClasses =
+    'bg-slate-800 border border-slate-700 rounded-md text-slate-100 px-2 py-1 focus:outline-2 focus:outline-amber-500 focus:outline-offset-1';
+  const ghostButtonClasses =
+    'rounded-lg px-3 py-1.5 text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2';
+
   return (
-    <section className="print-settings" aria-label="Print settings">
-      <div className="print-settings__row">
-        <label htmlFor="print-settings-diameter">
+    <section
+      aria-label="Print settings"
+      className="bg-slate-900 rounded-xl p-6 border border-slate-800 space-y-3"
+    >
+      <h2 className="text-lg font-semibold mb-1">Print Options</h2>
+
+      <div className={rowClasses}>
+        <label htmlFor="print-settings-diameter" className={labelClasses}>
           Card diameter (mm): {value.cardDiameterMm}
         </label>
         <input
@@ -108,73 +120,92 @@ export function PrintSettings({
           step={1}
           value={value.cardDiameterMm}
           onChange={handleDiameterChange}
+          className="accent-amber-500"
         />
       </div>
 
-      <div className="print-settings__row">
-        <label htmlFor="print-settings-page-size">Page size</label>
+      <div className={rowClasses}>
+        <label htmlFor="print-settings-page-size" className={labelClasses}>
+          Page size
+        </label>
         <select
           id="print-settings-page-size"
           value={value.pageSize}
           onChange={handlePageSizeChange}
+          className={selectClasses}
         >
           <option value="A4">A4</option>
           <option value="Letter">US Letter</option>
         </select>
       </div>
 
-      <div className="print-settings__row">
-        <label htmlFor="print-settings-crop-marks">
+      <div className={rowClasses}>
+        <label
+          htmlFor="print-settings-crop-marks"
+          className="flex items-center gap-2 text-slate-200"
+        >
           <input
             id="print-settings-crop-marks"
             type="checkbox"
             checked={value.cropMarks}
             onChange={handleCropMarksToggle}
+            className="accent-amber-500"
           />
           Crop marks
         </label>
       </div>
 
-      <div className="print-settings__row">
-        <label htmlFor="print-settings-bleed">
+      <div className={rowClasses}>
+        <label
+          htmlFor="print-settings-bleed"
+          className="flex items-center gap-2 text-slate-200"
+        >
           <input
             id="print-settings-bleed"
             type="checkbox"
             checked={value.bleed}
             onChange={handleBleedToggle}
+            className="accent-amber-500"
           />
           Bleed (2&nbsp;mm)
         </label>
       </div>
 
-      <div className="print-settings__row">
-        <label htmlFor="print-settings-background">Background</label>
+      <div className={rowClasses}>
+        <label htmlFor="print-settings-background" className={labelClasses}>
+          Background
+        </label>
         <select
           id="print-settings-background"
           value={value.background}
           onChange={handleBackgroundChange}
+          className={selectClasses}
         >
           <option value="white">White</option>
           <option value="transparent">Transparent</option>
         </select>
       </div>
 
-      <div className="print-settings__row">
-        <label htmlFor="print-settings-back-image">Card back image</label>
+      <div className={rowClasses}>
+        <label htmlFor="print-settings-back-image" className={labelClasses}>
+          Card back image
+        </label>
         <input
           id="print-settings-back-image"
           ref={backInputRef}
           type="file"
           accept="image/png,image/jpeg,image/webp"
           onChange={handleBackImageChange}
+          className="text-slate-300 text-sm"
         />
         {backImage ? (
           <>
-            <span className="print-settings__back-name">{backImage.name}</span>
+            <span className="text-slate-300 text-sm">{backImage.name}</span>
             <button
               type="button"
               onClick={handleRemoveBackImage}
               aria-label="Remove back image"
+              className={ghostButtonClasses}
             >
               Remove
             </button>
