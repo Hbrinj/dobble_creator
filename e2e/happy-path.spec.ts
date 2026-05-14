@@ -27,6 +27,13 @@ test('upload 13 images, generate, download a PDF', async ({ page }) => {
   const fileInput = page.locator('input[type="file"]').first();
   await fileInput.setInputFiles(fixtureFiles());
 
+  // The uploaded thumbnails should render in a responsive CSS grid. jsdom
+  // cannot resolve computed grid styles, so this assertion belongs in the
+  // real-browser E2E spec.
+  const thumbnailGrid = page.locator('.thumbnail-grid');
+  await expect(thumbnailGrid).toBeVisible();
+  await expect(thumbnailGrid).toHaveCSS('display', 'grid');
+
   // Generate. The button is disabled until enough images are queued.
   const generate = page.getByRole('button', { name: /^generate(?:…|\.\.\.)?$/i });
   await expect(generate).toBeEnabled({ timeout: 5000 });

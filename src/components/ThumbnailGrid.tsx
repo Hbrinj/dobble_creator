@@ -1,5 +1,6 @@
 import { useRef, type DragEvent, type JSX } from 'react';
 import { Trash2 } from 'lucide-react';
+import './ThumbnailGrid.css';
 
 export interface Thumbnail {
   readonly id: string;
