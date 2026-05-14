@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Mock the rendering pipeline so the integration test stays focused on
@@ -173,6 +173,40 @@ describe('App integration: generate flow', () => {
     expect(createObjectURL).toHaveBeenCalled();
     const arg = createObjectURL.mock.calls.at(-1)?.[0] as Blob;
     expect(arg.type).toBe('application/pdf');
+  });
+
+  it('clicking remove on a thumbnail removes it from the gallery and revokes its blob URL', async () => {
+    const { App } = await import('./App');
+    render(<App />);
+
+    const zone = screen.getByRole('button', { name: /upload images/i });
+    await act(async () => {
+      dispatchDrop(zone, makeUploadFiles(3));
+      await flushMicrotasks();
+    });
+
+    // Three thumbnail list items present.
+    const itemsBefore = await screen.findAllByRole('listitem');
+    expect(itemsBefore).toHaveLength(3);
+    expect(screen.getByAltText('img-1.png')).toBeInTheDocument();
+
+    // Capture the blob URL of the second thumbnail before removal.
+    const secondImage = within(itemsBefore[1]!).getByRole('img');
+    const removedUrl = secondImage.getAttribute('src');
+    expect(removedUrl).toBeTruthy();
+
+    const removeButton = within(itemsBefore[1]!).getByRole('button', {
+      name: /remove img-1\.png/i,
+    });
+    await userEvent.click(removeButton);
+
+    // Two thumbnails remain; the second name is gone.
+    const itemsAfter = screen.getAllByRole('listitem');
+    expect(itemsAfter).toHaveLength(2);
+    expect(screen.queryByAltText('img-1.png')).not.toBeInTheDocument();
+
+    // The removed image's blob URL was revoked.
+    expect(revokeObjectURL).toHaveBeenCalledWith(removedUrl);
   });
 
   it('disables the Generate button when fewer than 7 images are uploaded (edge case)', async () => {

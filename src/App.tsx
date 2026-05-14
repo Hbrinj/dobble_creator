@@ -151,6 +151,13 @@ export function App(): JSX.Element {
   const handleToggleInclude = useCallback((event: ToggleIncludeEvent) => {
     setImages((current) => swap(current, event.from, event.to));
   }, []);
+  const handleRemoveImage = useCallback(({ id }: { id: string }) => {
+    setImages((current) => {
+      const removed = current.find((i) => i.id === id);
+      if (removed) URL.revokeObjectURL(removed.url);
+      return current.filter((i) => i.id !== id);
+    });
+  }, []);
 
   const handleOrderChange = useCallback((next: number) => {
     setOrderOverride(SUPPORTED_PRIMES.includes(next) ? next : null);
@@ -282,7 +289,7 @@ export function App(): JSX.Element {
           includedCount={includedCount}
           onReorder={handleReorder}
           onToggleInclude={handleToggleInclude}
-          onRemove={() => undefined}
+          onRemove={handleRemoveImage}
         />
       ) : null}
 
