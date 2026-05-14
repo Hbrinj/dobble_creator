@@ -282,6 +282,7 @@ export function App(): JSX.Element {
           includedCount={includedCount}
           onReorder={handleReorder}
           onToggleInclude={handleToggleInclude}
+          onRemove={() => undefined}
         />
       ) : null}
 

@@ -1,4 +1,5 @@
 import { useRef, type DragEvent, type JSX } from 'react';
+import { Trash2 } from 'lucide-react';
 
 export interface Thumbnail {
   readonly id: string;
@@ -17,12 +18,17 @@ export interface ToggleIncludeEvent {
   readonly to: number;
 }
 
+export interface RemoveEvent {
+  readonly id: string;
+}
+
 export interface ThumbnailGridProps {
   readonly thumbnails: readonly Thumbnail[];
   /** How many of the leading thumbnails are included in the active deck. */
   readonly includedCount: number;
   readonly onReorder: (event: ReorderEvent) => void;
   readonly onToggleInclude: (event: ToggleIncludeEvent) => void;
+  readonly onRemove: (event: RemoveEvent) => void;
 }
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -44,6 +50,7 @@ export function ThumbnailGrid({
   includedCount,
   onReorder,
   onToggleInclude,
+  onRemove,
 }: ThumbnailGridProps): JSX.Element {
   const draggingIndexRef = useRef<number | null>(null);
   const effectiveIncluded = clamp(includedCount, 0, thumbnails.length);
@@ -122,6 +129,14 @@ export function ThumbnailGrid({
               <span className="thumbnail-grid__badge">
                 {isIncluded ? 'Included' : 'Excluded'}
               </span>
+            </button>
+            <button
+              type="button"
+              className="thumbnail-grid__remove"
+              aria-label={`Remove ${thumb.name}`}
+              onClick={() => onRemove({ id: thumb.id })}
+            >
+              <Trash2 aria-hidden="true" />
             </button>
           </li>
         );
