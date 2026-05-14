@@ -6,6 +6,7 @@ import {
   useState,
   type JSX,
 } from 'react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { UploadDropzone } from './components/UploadDropzone';
 import {
   ThumbnailGrid,
@@ -24,7 +25,11 @@ import { mulberry32 } from './lib/prng';
 import { generateIncidence } from './lib/incidence';
 import { packCircles } from './lib/packer';
 import { drawCard } from './render/drawCard';
-import { buildPdf, type CardImage, type PrintSettings as BuildPdfSettings } from './render/buildPdf';
+import {
+  buildPdf,
+  type CardImage,
+  type PrintSettings as BuildPdfSettings,
+} from './render/buildPdf';
 
 interface UploadedImage {
   readonly id: string;
@@ -181,34 +186,46 @@ export function App(): JSX.Element {
       for (const u of previewUrlsRef.current) URL.revokeObjectURL(u);
 
       const rendered: RenderedCard[] = [];
-      for (let cardIdx = 0; cardIdx < incidence.length; cardIdx++) {
-        const symbolIndices = incidence[cardIdx]!;
-        const packing = packCircles(symbolIndices.length, rng);
-        const rotations = symbolIndices.map(() => rng() * Math.PI * 2);
-        const canvas = document.createElement('canvas');
-        canvas.width = CARD_RENDER_PX;
-        canvas.height = CARD_RENDER_PX;
-        // Each card pulls images by symbol index (mod loaded count so every
-        // symbol resolves to one of the uploaded images).
-        const symbols = symbolIndices.map(
-          (s) => loadedImages[s % loadedImages.length]!,
-        );
-        drawCard(canvas, symbols, packing, rotations, {
-          diameterPx: CARD_RENDER_PX,
-          background: printSettings.background,
-          outline: true,
-        });
-        const pngBytes = await canvasToPngBytes(canvas);
-        const previewUrl = URL.createObjectURL(
-          new Blob([pngBytes], { type: 'image/png' }),
-        );
-        rendered.push({
-          id: `card-${cardIdx}`,
-          previewUrl,
-          pngBytes,
-        });
+      try {
+        for (let cardIdx = 0; cardIdx < incidence.length; cardIdx++) {
+          const symbolIndices = incidence[cardIdx]!;
+          const packing = packCircles(symbolIndices.length, rng);
+          const rotations = symbolIndices.map(() => rng() * Math.PI * 2);
+          const canvas = document.createElement('canvas');
+          canvas.width = CARD_RENDER_PX;
+          canvas.height = CARD_RENDER_PX;
+          // Each card pulls images by symbol index (mod loaded count so every
+          // symbol resolves to one of the uploaded images).
+          const symbols = symbolIndices.map(
+            (s) => loadedImages[s % loadedImages.length]!,
+          );
+          drawCard(canvas, symbols, packing, rotations, {
+            diameterPx: CARD_RENDER_PX,
+            background: printSettings.background,
+            outline: true,
+          });
+          const pngBytes = await canvasToPngBytes(canvas);
+          const previewUrl = URL.createObjectURL(
+            new Blob([pngBytes], { type: 'image/png' }),
+          );
+          rendered.push({
+            id: `card-${cardIdx}`,
+            previewUrl,
+            pngBytes,
+          });
+        }
+        setRenderedCards(rendered);
+      } catch (err) {
+        // Mid-loop failure: the previous batch's preview URLs were already
+        // revoked above, so leaving `renderedCards` referencing them would
+        // render broken <img src="blob:revoked"> tags. Revoke any URLs we
+        // managed to mint this run and clear the gallery so the UI returns
+        // to a clean state. Re-throw so callers/error reporting still see
+        // the failure.
+        for (const c of rendered) URL.revokeObjectURL(c.previewUrl);
+        setRenderedCards([]);
+        throw err;
       }
-      setRenderedCards(rendered);
     } finally {
       setIsGenerating(false);
     }
@@ -216,7 +233,9 @@ export function App(): JSX.Element {
 
   const handleDownloadPdf = useCallback(async () => {
     if (renderedCards.length === 0) return;
-    const cards: CardImage[] = renderedCards.map((c) => ({ pngBytes: c.pngBytes }));
+    const cards: CardImage[] = renderedCards.map((c) => ({
+      pngBytes: c.pngBytes,
+    }));
     const pdfSettings: BuildPdfSettings = {
       pageSize: printSettings.pageSize,
       cardDiameterMm: printSettings.cardDiameterMm,
@@ -265,80 +284,120 @@ export function App(): JSX.Element {
 
   const generateDisabled = order == null || isGenerating;
 
+  const hasImages = images.length > 0;
+  const hasRenderedCards = renderedCards.length > 0;
+  const showActionBar = hasImages || hasRenderedCards;
+
   return (
-    <main>
-      <h1>Dobble Card Generator</h1>
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col">
+      <header className="sticky top-0 z-10 bg-slate-900 border-b border-slate-800">
+        <div className="mx-auto max-w-5xl px-6 py-4">
+          <h1 className="text-2xl font-semibold">Dobble Card Generator</h1>
+        </div>
+      </header>
 
-      <UploadDropzone
-        onImagesAdded={handleImagesAdded}
-        onWarning={handleWarning}
-        onError={handleError}
-      />
-
-      {notices.length > 0 ? (
-        <ul className="notices" role="status" aria-live="polite">
-          {notices.map((n, i) => (
-            <li key={`${i}-${n}`}>{n}</li>
-          ))}
-        </ul>
-      ) : null}
-
-      {images.length > 0 ? (
-        <ThumbnailGrid
-          thumbnails={thumbnails}
-          includedCount={includedCount}
-          onReorder={handleReorder}
-          onToggleInclude={handleToggleInclude}
-          onRemove={handleRemoveImage}
+      <main className="mx-auto max-w-5xl w-full px-6 py-6 space-y-6 flex-1">
+        <UploadDropzone
+          onImagesAdded={handleImagesAdded}
+          onWarning={handleWarning}
+          onError={handleError}
         />
-      ) : null}
 
-      {order != null ? (
-        <DeckSettings
-          imageCount={images.length}
-          order={order}
-          seed={seed}
-          onOrderChange={handleOrderChange}
-          onSeedChange={setSeed}
+        {notices.length > 0 ? (
+          <ul className="space-y-2" role="status" aria-live="polite">
+            {notices.map((n, i) => (
+              <li
+                key={`${i}-${n}`}
+                className="flex items-center gap-2 rounded-md border bg-amber-500/10 border-amber-500/30 text-amber-200 text-sm px-3 py-2"
+              >
+                <AlertTriangle aria-hidden="true" className="size-4 shrink-0" />
+                <span>{n}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {hasImages ? (
+          <ThumbnailGrid
+            thumbnails={thumbnails}
+            includedCount={includedCount}
+            onReorder={handleReorder}
+            onToggleInclude={handleToggleInclude}
+            onRemove={handleRemoveImage}
+          />
+        ) : null}
+
+        {order != null ? (
+          <DeckSettings
+            imageCount={images.length}
+            order={order}
+            seed={seed}
+            onOrderChange={handleOrderChange}
+            onSeedChange={setSeed}
+          />
+        ) : null}
+
+        <PrintSettings
+          value={printSettings}
+          backImage={backImageFile}
+          onChange={setPrintSettings}
+          onBackImageChange={setBackImageFile}
         />
+
+        {renderedCards.length > 0 ? (
+          <section
+            aria-label="Preview"
+            className="bg-slate-900 rounded-xl p-6 border border-slate-800"
+          >
+            <h2 className="text-lg font-semibold mb-4">Preview</h2>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+              {renderedCards.map((c) => (
+                <div
+                  key={c.id}
+                  className="bg-slate-800 rounded-lg p-3 border border-slate-700 aspect-square"
+                >
+                  <img
+                    src={c.previewUrl}
+                    alt="Dobble card preview"
+                    data-testid="preview-card"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </main>
+
+      {showActionBar ? (
+        <footer className="sticky bottom-0 bg-slate-900 border-t border-slate-800">
+          <div className="mx-auto max-w-5xl px-6 py-3 flex gap-3 justify-end">
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={renderedCards.length === 0}
+              className="rounded-lg px-4 py-2 font-medium transition-colors bg-slate-800 text-slate-100 border border-slate-700 hover:bg-slate-700 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2"
+            >
+              Download PDF
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={generateDisabled}
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 font-medium transition-colors bg-amber-500 text-slate-900 hover:bg-amber-400 disabled:bg-slate-700 disabled:text-slate-500 focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                'Generate'
+              )}
+            </button>
+          </div>
+        </footer>
       ) : null}
-
-      <PrintSettings
-        value={printSettings}
-        backImage={backImageFile}
-        onChange={setPrintSettings}
-        onBackImageChange={setBackImageFile}
-      />
-
-      <div className="generate-bar">
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={generateDisabled}
-        >
-          {isGenerating ? 'Generating…' : 'Generate'}
-        </button>
-        <button
-          type="button"
-          onClick={handleDownloadPdf}
-          disabled={renderedCards.length === 0}
-        >
-          Download PDF
-        </button>
-      </div>
-
-      {renderedCards.length > 0 ? (
-        <section aria-label="Preview" className="preview-gallery">
-          {renderedCards.map((c) => (
-            <img
-              key={c.id}
-              src={c.previewUrl}
-              alt="Dobble card preview"
-              data-testid="preview-card"
-            />
-          ))}
-        </section>
-      ) : null}
-    </main>
+    </div>
   );
 }

@@ -1,6 +1,5 @@
 import { useRef, type DragEvent, type JSX } from 'react';
 import { Trash2 } from 'lucide-react';
-import './ThumbnailGrid.css';
 
 export interface Thumbnail {
   readonly id: string;
@@ -105,7 +104,11 @@ export function ThumbnailGrid({
   };
 
   return (
-    <ul className="thumbnail-grid" role="list">
+    <ul
+      role="list"
+      data-testid="thumbnail-grid"
+      className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3 list-none p-0 m-0"
+    >
       {thumbnails.map((thumb, index) => {
         const isIncluded = index < effectiveIncluded;
         return (
@@ -118,26 +121,33 @@ export function ThumbnailGrid({
             onDragOver={handleDragOver}
             onDrop={handleDrop(index)}
             onDragEnd={handleDragEnd}
-            className={`thumbnail-grid__item${isIncluded ? '' : ' thumbnail-grid__item--excluded'}`}
+            className={`flex flex-col gap-1 relative transition-opacity duration-150 ${
+              isIncluded ? '' : 'opacity-50'
+            }`}
           >
             <button
               type="button"
-              className="thumbnail-grid__toggle"
               onClick={() => handleToggle(index)}
               aria-label={`${isIncluded ? 'Exclude' : 'Include'} ${thumb.name}`}
+              className="aspect-square w-full rounded-lg overflow-hidden bg-slate-900 border border-slate-800 p-0 cursor-pointer relative focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2"
             >
-              <img src={thumb.url} alt={thumb.name} draggable={false} />
-              <span className="thumbnail-grid__badge">
+              <img
+                src={thumb.url}
+                alt={thumb.name}
+                draggable={false}
+                className="w-full h-full object-contain block"
+              />
+              <span className="absolute top-2 left-2 bg-slate-900/80 text-amber-300 border border-amber-500/40 rounded-full text-xs px-2 py-0.5 pointer-events-none">
                 {isIncluded ? 'Included' : 'Excluded'}
               </span>
             </button>
             <button
               type="button"
-              className="thumbnail-grid__remove"
               aria-label={`Remove ${thumb.name}`}
               onClick={() => onRemove({ id: thumb.id })}
+              className="self-end inline-flex items-center justify-center rounded-lg p-1 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2"
             >
-              <Trash2 aria-hidden="true" />
+              <Trash2 aria-hidden="true" className="size-4" />
             </button>
           </li>
         );

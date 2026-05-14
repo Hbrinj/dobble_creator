@@ -145,6 +145,21 @@ describe('ThumbnailGrid', () => {
     }
   });
 
+  it('renders the grid with Tailwind utility classes and no legacy BEM classes', () => {
+    render(
+      <ThumbnailGrid
+        thumbnails={makeThumbs(3)}
+        includedCount={3}
+        onReorder={vi.fn()}
+        onToggleInclude={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+    );
+    const list = screen.getAllByRole('list')[0]!;
+    expect(list.className).toContain('grid');
+    expect(list.className).not.toMatch(/thumbnail-grid/);
+  });
+
   it('fires onRemove with the correct id when the per-item remove button is clicked', async () => {
     const thumbs = makeThumbs(3);
     const onRemove = vi.fn();

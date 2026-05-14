@@ -138,6 +138,21 @@ describe('UploadDropzone', () => {
     expect(onImagesAdded).toHaveBeenCalledWith([file]);
   });
 
+  it('renders a cloud-upload icon and a dashed-border drop target', () => {
+    render(
+      <UploadDropzone
+        onImagesAdded={vi.fn()}
+        onWarning={vi.fn()}
+        onError={vi.fn()}
+      />,
+    );
+    const zone = screen.getByRole('button', { name: /upload images/i });
+    expect(zone.className).toMatch(/border-dashed/);
+    // The lucide-react UploadCloud icon renders as an inline SVG inside the
+    // dropzone.
+    expect(zone.querySelector('svg')).not.toBeNull();
+  });
+
   it('handles the edge case of dropping zero files without notifying parent', async () => {
     const onImagesAdded = vi.fn();
     const onError = vi.fn();

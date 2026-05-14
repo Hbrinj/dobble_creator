@@ -119,6 +119,21 @@ describe('DeckSettings', () => {
     expect(onSeedChange).not.toHaveBeenCalled();
   });
 
+  it('renders within a titled card with a "Deck Options" h2', () => {
+    render(
+      <DeckSettings
+        imageCount={31}
+        order={5}
+        seed={1}
+        onOrderChange={vi.fn()}
+        onSeedChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole('heading', { level: 2, name: /deck options/i }),
+    ).toBeInTheDocument();
+  });
+
   it('disables the order selector when only one valid order exists', () => {
     render(
       <DeckSettings

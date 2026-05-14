@@ -22,6 +22,18 @@ const fixtureFiles = (): string[] => {
 test('upload 13 images, generate, download a PDF', async ({ page }) => {
   await page.goto('/');
 
+  // Foundation assertions (Slice 1): the page renders inside the new dark
+  // Plus Jakarta Sans shell with a sticky header.
+  await expect(page.locator('body')).toHaveCSS(
+    'background-color',
+    'rgb(2, 6, 23)',
+  );
+  await expect(page.locator('body')).toHaveCSS(
+    'font-family',
+    /Plus Jakarta Sans/,
+  );
+  await expect(page.locator('header').first()).toHaveCSS('position', 'sticky');
+
   // The dropzone exposes a hidden file input. Use Playwright's setInputFiles
   // on the input — robust across browsers and faster than synthesising drag-drop.
   const fileInput = page.locator('input[type="file"]').first();
@@ -30,12 +42,14 @@ test('upload 13 images, generate, download a PDF', async ({ page }) => {
   // The uploaded thumbnails should render in a responsive CSS grid. jsdom
   // cannot resolve computed grid styles, so this assertion belongs in the
   // real-browser E2E spec.
-  const thumbnailGrid = page.locator('.thumbnail-grid');
+  const thumbnailGrid = page.getByTestId('thumbnail-grid');
   await expect(thumbnailGrid).toBeVisible();
   await expect(thumbnailGrid).toHaveCSS('display', 'grid');
 
   // Generate. The button is disabled until enough images are queued.
-  const generate = page.getByRole('button', { name: /^generate(?:…|\.\.\.)?$/i });
+  const generate = page.getByRole('button', {
+    name: /^generate(?:…|\.\.\.)?$/i,
+  });
   await expect(generate).toBeEnabled({ timeout: 5000 });
   await generate.click();
 
