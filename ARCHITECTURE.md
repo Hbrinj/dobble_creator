@@ -25,7 +25,7 @@ Dobble Card Generator is a fully client-side React + TypeScript single-page appl
 |------|---------|
 | `index.html` | Vite entry HTML. Hosts the `#root` mount point. No `<link>` web-font tags — fonts are bundled via npm and imported from `src/main.tsx`. |
 | `src/main.tsx` | App bootstrap. Creates the React root, imports `./index.css`, and imports the Plus Jakarta Sans variable font package. |
-| `src/index.css` | Global stylesheet. Post-`prettify-ui` contents are `@import 'tailwindcss';` plus an `@theme` block declaring CSS variables (`--font-sans`, optional colour aliases). No hand-rolled per-component CSS files. |
+| `src/index.css` | Global stylesheet. Current contents: `@import 'tailwindcss';` plus an `@theme` block declaring CSS variables (`--font-sans`, optional colour aliases). No hand-rolled per-component CSS files. |
 | `src/App.tsx` | Top-level layout shell and orchestration. Owns all top-level state (uploaded images, notices, seed, order override, print settings, back image, rendered cards, isGenerating) and wires the generate / download-PDF pipeline. Renders the sticky-header + max-w-5xl content + sticky-footer page shell. |
 | `src/App.test.tsx` | App-level component tests (notices, preview gallery, generate-button loading state). |
 | `src/components/` | Presentational + lightly-stateful UI components. Each component is one `.tsx` plus a sibling `.test.tsx`. No per-component `.css` files; styling lives inline as Tailwind utility classes. Non-component shared constants live in sibling `.ts` files (e.g. `printSettingsTypes.ts`) to satisfy `react-refresh/only-export-components`. |
