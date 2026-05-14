@@ -37,6 +37,7 @@ describe('ThumbnailGrid', () => {
         includedCount={13}
         onReorder={vi.fn()}
         onToggleInclude={vi.fn()}
+        onRemove={vi.fn()}
       />,
     );
     const items = screen.getAllByRole('listitem');
@@ -58,13 +59,16 @@ describe('ThumbnailGrid', () => {
         includedCount={13}
         onReorder={vi.fn()}
         onToggleInclude={onToggleInclude}
+        onRemove={vi.fn()}
       />,
     );
     const items = screen.getAllByRole('listitem');
     // Click the first excluded one (index 13). It should swap with index 12
     // (the last currently-included item) so it becomes included.
     const target = items[13]!;
-    const toggle = within(target).getByRole('button');
+    const toggle = within(target).getByRole('button', {
+      name: /include image-13\.png/i,
+    });
     await userEvent.click(toggle);
     expect(onToggleInclude).toHaveBeenCalledWith({ from: 13, to: 12 });
   });
@@ -78,10 +82,13 @@ describe('ThumbnailGrid', () => {
         includedCount={13}
         onReorder={vi.fn()}
         onToggleInclude={onToggleInclude}
+        onRemove={vi.fn()}
       />,
     );
     const items = screen.getAllByRole('listitem');
-    const toggle = within(items[0]!).getByRole('button');
+    const toggle = within(items[0]!).getByRole('button', {
+      name: /exclude image-0\.png/i,
+    });
     await userEvent.click(toggle);
     expect(onToggleInclude).toHaveBeenCalledWith({ from: 0, to: 13 });
   });
@@ -95,6 +102,7 @@ describe('ThumbnailGrid', () => {
         includedCount={5}
         onReorder={onReorder}
         onToggleInclude={vi.fn()}
+        onRemove={vi.fn()}
       />,
     );
     const items = screen.getAllByRole('listitem');
@@ -114,6 +122,7 @@ describe('ThumbnailGrid', () => {
         includedCount={0}
         onReorder={vi.fn()}
         onToggleInclude={vi.fn()}
+        onRemove={vi.fn()}
       />,
     );
     expect(screen.queryAllByRole('listitem')).toHaveLength(0);
@@ -126,6 +135,7 @@ describe('ThumbnailGrid', () => {
         includedCount={50}
         onReorder={vi.fn()}
         onToggleInclude={vi.fn()}
+        onRemove={vi.fn()}
       />,
     );
     const items = screen.getAllByRole('listitem');
@@ -133,5 +143,27 @@ describe('ThumbnailGrid', () => {
     for (const item of items) {
       expect(item).toHaveAttribute('data-included', 'true');
     }
+  });
+
+  it('fires onRemove with the correct id when the per-item remove button is clicked', async () => {
+    const thumbs = makeThumbs(3);
+    const onRemove = vi.fn();
+    render(
+      <ThumbnailGrid
+        thumbnails={thumbs}
+        includedCount={3}
+        onReorder={vi.fn()}
+        onToggleInclude={vi.fn()}
+        onRemove={onRemove}
+      />,
+    );
+    const items = screen.getAllByRole('listitem');
+    const target = items[1]!;
+    const removeButton = within(target).getByRole('button', {
+      name: /remove .+/i,
+    });
+    await userEvent.click(removeButton);
+    expect(onRemove).toHaveBeenCalledTimes(1);
+    expect(onRemove).toHaveBeenCalledWith({ id: 'thumb-1' });
   });
 });
