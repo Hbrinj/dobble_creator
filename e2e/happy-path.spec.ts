@@ -45,7 +45,7 @@ test('upload 13 images, generate, download a PDF', async ({ page }) => {
   // The uploaded thumbnails should render in a responsive CSS grid. jsdom
   // cannot resolve computed grid styles, so this assertion belongs in the
   // real-browser E2E spec.
-  const thumbnailGrid = page.locator('.thumbnail-grid');
+  const thumbnailGrid = page.getByTestId('thumbnail-grid');
   await expect(thumbnailGrid).toBeVisible();
   await expect(thumbnailGrid).toHaveCSS('display', 'grid');
 
