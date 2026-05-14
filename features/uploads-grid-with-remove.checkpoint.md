@@ -1,7 +1,7 @@
 # Checkpoint: uploads-grid-with-remove
 
 ## Status
-Step 2 — Implement — COMPLETE
+Step 2 — Implement — COMPLETE (PR open: https://github.com/Hbrinj/dobble_creator/pull/2)
 
 ## Completed steps
 - [x] Step 1 — Plan
