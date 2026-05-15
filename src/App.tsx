@@ -23,7 +23,7 @@ import {
 import { deckSize, pickOrder, SUPPORTED_PRIMES } from './lib/orderPicker';
 import { mulberry32 } from './lib/prng';
 import { generateIncidence } from './lib/incidence';
-import { packCircles } from './lib/packer';
+import { packCircles, PackingDidNotConvergeError } from './lib/packer';
 import { drawCard } from './render/drawCard';
 import { extractAlphaMask } from './lib/imageAlpha';
 import {
@@ -236,9 +236,25 @@ export function App(): JSX.Element {
 
       const rendered: RenderedCard[] = [];
       try {
+        let packFailure: { cardIndex: number; attempts: number } | null = null;
         for (let cardIdx = 0; cardIdx < incidence.length; cardIdx++) {
           const symbolIndices = incidence[cardIdx]!;
-          const packing = packCircles(symbolIndices.length, rng);
+          let packing: ReturnType<typeof packCircles>;
+          try {
+            packing = packCircles(symbolIndices.length, rng);
+          } catch (err) {
+            if (err instanceof PackingDidNotConvergeError) {
+              // Treat the whole generate run as failed — abandon mid-loop and
+              // fall through to the cleanup branch below. Re-running with a
+              // different seed (Decision 13) is the user's recovery path.
+              packFailure = {
+                cardIndex: cardIdx,
+                attempts: err.attempts,
+              };
+              break;
+            }
+            throw err;
+          }
           const rotations = symbolIndices.map(() => rng() * Math.PI * 2);
           const canvas = document.createElement('canvas');
           canvas.width = CARD_RENDER_PX;
@@ -262,6 +278,19 @@ export function App(): JSX.Element {
             previewUrl,
             pngBytes,
           });
+        }
+        if (packFailure !== null) {
+          // Convergence-failure cleanup: revoke any blob URLs we minted for
+          // the partial run, clear the gallery so the UI doesn't reference
+          // them, and surface an amber notice telling the user to retry.
+          const { cardIndex, attempts } = packFailure;
+          for (const c of rendered) URL.revokeObjectURL(c.previewUrl);
+          setRenderedCards([]);
+          setNotices((current) => [
+            ...current,
+            `Could not pack card ${cardIndex + 1} after ${attempts} attempts — please regenerate.`,
+          ]);
+          return;
         }
         setRenderedCards(rendered);
       } catch (err) {

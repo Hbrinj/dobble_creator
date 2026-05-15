@@ -1,36 +1,46 @@
 import { describe, it, expect } from 'vitest';
-import { packCircles } from './packer';
+import {
+  packCircles,
+  PackingDidNotConvergeError,
+  OVERLAP_TOLERANCE,
+  MAX_RETRIES,
+  __testing,
+} from './packer';
 import { mulberry32 } from './prng';
 
 const EPS = 1e-3;
 
 describe('packCircles', () => {
-  // PACKING_FRACTION sits at 0.65 (Decision 10 in tasks/alpha-aware-packing.md)
-  // which is the empirical safe ceiling for the production deck orders
-  // (symbolIndices.length ∈ {8, 13, 32, 58}). At higher density the force
-  // relaxation does not converge for arbitrary low-k seeds (e.g. k=3, k=4)
-  // within MAX_ITERATIONS; that scenario never occurs in production so it is
-  // deferred per Decision 10's note on convergence-aware reporting.
+  // The 200-seed sweep is the load-bearing assertion that future density
+  // changes can't silently regress: at PACKING_FRACTION=0.65 the relaxation
+  // loop fails to converge on ~12% of seeds at k=8 (Decision 10), and the
+  // retry-with-fresh-seed policy in Decision 13 must collapse that to zero
+  // observable failures across the production deck orders.
   it.each([8, 13])(
-    'packs %i circles inside the unit parent without overlap',
+    'produces non-overlapping output across 200 seeds for k=%i at PACKING_FRACTION=0.65',
     (k) => {
-      const rng = mulberry32(1234 + k);
-      const circles = packCircles(k, rng);
-      expect(circles.length).toBe(k);
-      // all child circles fully inside the parent (centred at origin, radius 1)
-      for (const c of circles) {
-        const distFromCentre = Math.hypot(c.x, c.y);
-        expect(distFromCentre + c.r).toBeLessThanOrEqual(1 + EPS);
-        expect(c.r).toBeGreaterThan(0);
-      }
-      // pairwise non-overlap
-      for (let i = 0; i < circles.length; i++) {
-        for (let j = i + 1; j < circles.length; j++) {
-          const a = circles[i]!;
-          const b = circles[j]!;
-          const d = Math.hypot(a.x - b.x, a.y - b.y);
-          expect(d).toBeGreaterThanOrEqual(a.r + b.r - EPS);
+      for (let s = 0; s < 200; s++) {
+        const rng = mulberry32(s);
+        const circles = packCircles(k, rng);
+        expect(circles.length).toBe(k);
+        // Every child fully inside the parent (centre at origin, radius 1).
+        for (const c of circles) {
+          const distFromCentre = Math.hypot(c.x, c.y);
+          expect(distFromCentre + c.r).toBeLessThanOrEqual(1 + EPS);
+          expect(c.r).toBeGreaterThan(0);
         }
+        // Worst pair-overlap below the tolerance Decision 13 pins.
+        let worst = 0;
+        for (let i = 0; i < circles.length; i++) {
+          for (let j = i + 1; j < circles.length; j++) {
+            const a = circles[i]!;
+            const b = circles[j]!;
+            const d = Math.hypot(a.x - b.x, a.y - b.y);
+            const overlap = a.r + b.r - d;
+            if (overlap > worst) worst = overlap;
+          }
+        }
+        expect(worst).toBeLessThan(OVERLAP_TOLERANCE);
       }
     },
   );
@@ -49,6 +59,50 @@ describe('packCircles', () => {
     const a = packCircles(6, mulberry32(42));
     const b = packCircles(6, mulberry32(42));
     expect(a).toEqual(b);
+  });
+
+  it('produces identical output for the same caller-supplied rng across retries', () => {
+    // Even when the retry chain kicks in for some seeds, the chain itself is
+    // derived from the caller's rng — so two invocations with the same seed
+    // must yield byte-identical output (Decision 13: determinism preserved).
+    const a = packCircles(8, mulberry32(42));
+    const b = packCircles(8, mulberry32(42));
+    expect(a).toEqual(b);
+  });
+
+  it('exports PackingDidNotConvergeError and throws it when every retry fails', () => {
+    // Monkey-patch the per-attempt packing primitive via the test-only
+    // `__testing` export so every attempt deterministically produces an
+    // overlapping layout. The retry loop in `packCircles` is the unit under
+    // test here — we want to assert it exhausts MAX_RETRIES and surfaces a
+    // typed error, not the relaxation math. Documented as test-only on the
+    // export itself.
+    const k = 13;
+    const pathological = (): { x: number; y: number; r: number }[] =>
+      // Two co-centred circles of radius 0.4 → guaranteed overlap of 0.8,
+      // far above OVERLAP_TOLERANCE. Padded out to `k` entries by repeating
+      // the same overlapping pair pattern.
+      Array.from({ length: k }, (_, i) => ({
+        x: i % 2 === 0 ? 0 : 0.01,
+        y: 0,
+        r: 0.4,
+      }));
+    const restore = __testing.setAttemptPacking(pathological);
+    try {
+      let thrown: unknown = null;
+      try {
+        packCircles(k, mulberry32(1));
+      } catch (e) {
+        thrown = e;
+      }
+      expect(thrown).toBeInstanceOf(PackingDidNotConvergeError);
+      const err = thrown as PackingDidNotConvergeError;
+      expect(err.k).toBe(k);
+      expect(err.attempts).toBe(MAX_RETRIES);
+      expect(err.name).toBe('PackingDidNotConvergeError');
+    } finally {
+      restore();
+    }
   });
 
   it('completes within 100ms for k=8', () => {

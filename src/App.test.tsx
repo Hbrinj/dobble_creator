@@ -9,6 +9,37 @@ vi.mock('./render/drawCard', () => ({
   drawCard: vi.fn(() => undefined),
 }));
 
+// Hoisted handle so individual tests can swap the packer's behaviour at
+// module boundary (e.g. force a PackingDidNotConvergeError to assert the
+// App-level catch path).
+const packCirclesMock = vi.hoisted(() =>
+  vi.fn<
+    (k: number, rng: () => number) => { x: number; y: number; r: number }[]
+  >((k) =>
+    Array.from({ length: k }, (_, i) => ({
+      x: 0,
+      y: 0,
+      r: 0.1 + i * 0.001,
+    })),
+  ),
+);
+class MockPackingDidNotConvergeError extends Error {
+  readonly k: number;
+  readonly attempts: number;
+  constructor(k: number, attempts: number) {
+    super(
+      `packCircles: could not converge for k=${k} after ${attempts} attempts`,
+    );
+    this.name = 'PackingDidNotConvergeError';
+    this.k = k;
+    this.attempts = attempts;
+  }
+}
+vi.mock('./lib/packer', () => ({
+  packCircles: packCirclesMock,
+  PackingDidNotConvergeError: MockPackingDidNotConvergeError,
+}));
+
 // Mock the canvas-touching alpha adapter — jsdom does not implement
 // createImageBitmap / OffscreenCanvas. By default we resolve with a 4x4 fully
 // opaque mask so existing test paths (which upload PNG files) keep flowing.
@@ -107,6 +138,20 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+// Reset the packer mock to a default non-overlapping return before every test
+// so individual tests can opt into a throwing implementation when they need
+// to exercise the App-level error catch path.
+beforeEach(() => {
+  packCirclesMock.mockReset();
+  packCirclesMock.mockImplementation((k) =>
+    Array.from({ length: k }, (_, i) => ({
+      x: 0,
+      y: 0,
+      r: 0.1 + i * 0.001,
+    })),
+  );
 });
 
 const makeUploadFiles = (count: number): File[] =>
@@ -416,6 +461,54 @@ describe('App integration: generate flow', () => {
     });
     expect(downloadButton).toBeInTheDocument();
     expect(downloadButton).toBeEnabled();
+  });
+
+  it('surfaces an amber notice when packCircles throws PackingDidNotConvergeError and clears renderedCards', async () => {
+    // Drive the packer to throw on the first card of the generate run.
+    // The App-level handler must:
+    //   1. Catch the typed error (no rethrow / unhandled rejection).
+    //   2. Surface an amber notice mentioning the pack failure.
+    //   3. Clear renderedCards so we don't leave stale <img> tags pointing
+    //      at revoked blob URLs (matches the existing failure-path contract
+    //      added in commit ddde169).
+    packCirclesMock.mockImplementation((k) => {
+      throw new MockPackingDidNotConvergeError(k, 8);
+    });
+
+    const { App } = await import('./App');
+    render(<App />);
+
+    const zone = screen.getByRole('button', { name: /upload images/i });
+    await act(async () => {
+      dispatchDrop(zone, makeUploadFiles(13));
+      await flushMicrotasks();
+    });
+
+    const generateButton = await screen.findByRole('button', {
+      name: /^generate$/i,
+    });
+    await act(async () => {
+      await userEvent.click(generateButton);
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+
+    // No preview cards rendered.
+    expect(screen.queryAllByTestId('preview-card')).toHaveLength(0);
+
+    // An amber notice is visible referencing the pack failure. (The notices
+    // <ul> has role="status"; we scope the assertion to that list to avoid
+    // colliding with thumbnail listitems.)
+    const list = await screen.findByRole('status');
+    const items = within(list).getAllByRole('listitem');
+    expect(items).toHaveLength(1);
+    expect(items[0]!.className).toContain('border-amber-500/30');
+    expect(items[0]!.textContent).toMatch(/pack|regenerate/i);
+
+    // Generate button is back to idle and enabled.
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^generate$/i })).toBeEnabled();
+    });
   });
 
   it('clears stale previews and re-enables the Generate button when canvas.toBlob fails mid-generate', async () => {
