@@ -1,14 +1,14 @@
 # Checkpoint: alpha-aware-packing
 
 ## Status
-Step 2 — Implement — COMPLETE
+MERGED 2026-05-15 (PR #4 → main, merge commit `c700526`)
 
 ## Completed steps
 - [x] Step 1 — Plan
 - [x] Step 2 — Implement (now includes Slice 4 — added 2026-05-15 after live-print regression)
 
 ## Resumption notes
-- Branch `feature/alpha-aware-packing` is implemented, reviewed, and pushed. PR not yet opened — awaiting user approval at the post-implementation review gate.
+- Merged via PR #4 (merge commit `c700526`) on 2026-05-15. No follow-up actions required on this branch.
 - Commits on branch (ordered):
   - `c62b82a` Plan: alpha-aware-packing task brief + TODO entry
   - `f0d664c` Slice 1 — Pure silhouette helper (`computeSilhouetteCircle` + `EmptySilhouetteError`)
