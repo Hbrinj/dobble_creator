@@ -49,7 +49,7 @@ npm run preview
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint over the whole repo |
 | `npm run format:check` | Prettier in check-only mode |
-| `npm run e2e` | Playwright end-to-end tests |
+| `npm run e2e` | Playwright end-to-end tests (run `npx playwright install` once on a fresh clone to download the browsers) |
 
 ## Project layout
 
