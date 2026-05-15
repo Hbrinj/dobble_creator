@@ -23,8 +23,14 @@ import {
 import { deckSize, pickOrder, SUPPORTED_PRIMES } from './lib/orderPicker';
 import { mulberry32 } from './lib/prng';
 import { generateIncidence } from './lib/incidence';
-import { packCircles } from './lib/packer';
+import { packCircles, PackingDidNotConvergeError } from './lib/packer';
 import { drawCard } from './render/drawCard';
+import { extractAlphaMask } from './lib/imageAlpha';
+import {
+  computeSilhouetteCircle,
+  EmptySilhouetteError,
+  type SilhouetteCircle,
+} from './lib/silhouette';
 import {
   buildPdf,
   type CardImage,
@@ -36,6 +42,7 @@ interface UploadedImage {
   readonly file: File;
   readonly url: string;
   readonly name: string;
+  readonly silhouette: SilhouetteCircle;
 }
 
 interface RenderedCard {
@@ -131,16 +138,50 @@ export function App(): JSX.Element {
     };
   }, []);
 
-  const handleImagesAdded = useCallback((files: readonly File[]) => {
-    setImages((current) => {
-      const additions: UploadedImage[] = files.map((f, i) => ({
-        id: `img-${Date.now()}-${current.length + i}-${f.name}`,
-        file: f,
-        url: URL.createObjectURL(f),
-        name: f.name,
-      }));
-      return [...current, ...additions];
-    });
+  const handleImagesAdded = useCallback(async (files: readonly File[]) => {
+    // Parallel silhouette extraction; commit successes + per-file notices in
+    // one batch (Decision 9 — sync-then-add UX).
+    const results = await Promise.allSettled(
+      files.map(async (f) => {
+        const { width, height, alpha } = await extractAlphaMask(f);
+        const silhouette = computeSilhouetteCircle(alpha, width, height);
+        return { file: f, silhouette };
+      }),
+    );
+
+    const accepted: { file: File; silhouette: SilhouetteCircle }[] = [];
+    const rejections: string[] = [];
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i]!;
+      const file = files[i]!;
+      if (result.status === 'fulfilled') {
+        accepted.push(result.value);
+      } else if (result.reason instanceof EmptySilhouetteError) {
+        rejections.push(
+          `${file.name}: this image has no visible content — nothing would print.`,
+        );
+      } else {
+        rejections.push(
+          `${file.name}: could not read image silhouette — file may be corrupt or unsupported.`,
+        );
+      }
+    }
+
+    if (accepted.length > 0) {
+      setImages((current) => {
+        const additions: UploadedImage[] = accepted.map((a, i) => ({
+          id: `img-${Date.now()}-${current.length + i}-${a.file.name}`,
+          file: a.file,
+          url: URL.createObjectURL(a.file),
+          name: a.file.name,
+          silhouette: a.silhouette,
+        }));
+        return [...current, ...additions];
+      });
+    }
+    if (rejections.length > 0) {
+      setNotices((current) => [...current, ...rejections]);
+    }
   }, []);
 
   const handleWarning = useCallback((msg: string) => {
@@ -177,9 +218,17 @@ export function App(): JSX.Element {
       const cardsNeeded = incidence.length;
       const includedImages = images.slice(0, cardsNeeded);
 
-      // Load all images first so we can synchronously draw afterwards.
+      // Load all images first so we can synchronously draw afterwards. Tag
+      // each HTMLImageElement with its pre-computed silhouette so drawCard
+      // can map the image's opaque region onto the slot circle (Decision 10).
+      // We attach silhouette as a property on the element itself so the
+      // CanvasImageSource cast inside drawCard still resolves to a real
+      // drawable at runtime.
       const loadedImages = await Promise.all(
-        includedImages.map((img) => loadImage(img.url)),
+        includedImages.map(async (img) => {
+          const element = await loadImage(img.url);
+          return Object.assign(element, { silhouette: img.silhouette });
+        }),
       );
 
       // Revoke previous preview URLs before replacing.
@@ -187,9 +236,25 @@ export function App(): JSX.Element {
 
       const rendered: RenderedCard[] = [];
       try {
+        let packFailure: { cardIndex: number; attempts: number } | null = null;
         for (let cardIdx = 0; cardIdx < incidence.length; cardIdx++) {
           const symbolIndices = incidence[cardIdx]!;
-          const packing = packCircles(symbolIndices.length, rng);
+          let packing: ReturnType<typeof packCircles>;
+          try {
+            packing = packCircles(symbolIndices.length, rng);
+          } catch (err) {
+            if (err instanceof PackingDidNotConvergeError) {
+              // Treat the whole generate run as failed — abandon mid-loop and
+              // fall through to the cleanup branch below. Re-running with a
+              // different seed (Decision 13) is the user's recovery path.
+              packFailure = {
+                cardIndex: cardIdx,
+                attempts: err.attempts,
+              };
+              break;
+            }
+            throw err;
+          }
           const rotations = symbolIndices.map(() => rng() * Math.PI * 2);
           const canvas = document.createElement('canvas');
           canvas.width = CARD_RENDER_PX;
@@ -213,6 +278,19 @@ export function App(): JSX.Element {
             previewUrl,
             pngBytes,
           });
+        }
+        if (packFailure !== null) {
+          // Convergence-failure cleanup: revoke any blob URLs we minted for
+          // the partial run, clear the gallery so the UI doesn't reference
+          // them, and surface an amber notice telling the user to retry.
+          const { cardIndex, attempts } = packFailure;
+          for (const c of rendered) URL.revokeObjectURL(c.previewUrl);
+          setRenderedCards([]);
+          setNotices((current) => [
+            ...current,
+            `Could not pack card ${cardIndex + 1} after ${attempts} attempts — please regenerate.`,
+          ]);
+          return;
         }
         setRenderedCards(rendered);
       } catch (err) {
