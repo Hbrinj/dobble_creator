@@ -1,7 +1,7 @@
 # Checkpoint: readme-install
 
 ## Status
-Step 2 — Implement — COMPLETE
+Step 2 — Implement — COMPLETE (PR #5 merged into main as `dc5bc7b` on 2026-05-18)
 
 ## Completed steps
 - [x] Step 1 — Plan (scope confirmed inline with user; written to `tasks/readme-install.md`)
@@ -17,4 +17,4 @@ Step 2 — Implement — COMPLETE
 - Deferred (per task plan): deploy section (GitHub Pages base path quirks), contributing section (workflow / TDD policy), `.nvmrc` / `engines` field.
 
 ## Last updated
-2026-05-15
+2026-05-18

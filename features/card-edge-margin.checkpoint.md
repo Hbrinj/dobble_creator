@@ -1,7 +1,7 @@
 # Checkpoint: card-edge-margin
 
 ## Status
-Step 2 — Implement — COMPLETE (awaiting user approval at post-implementation review gate before push + PR)
+Step 2 — Implement — COMPLETE (PR #6 merged into main as `29c0a2c` on 2026-05-18)
 
 ## Completed steps
 - [x] Step 1 — Plan (`tasks/card-edge-margin.md` finalised: 6 Decisions, 4 Slices, 0 Open Questions, 0 Deferred)
