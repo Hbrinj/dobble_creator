@@ -34,6 +34,7 @@ import {
 } from './lib/silhouette';
 import {
   buildPdf,
+  BLEED_MM,
   type CardImage,
   type PrintSettings as BuildPdfSettings,
 } from './render/buildPdf';
@@ -59,10 +60,6 @@ interface RenderedCard {
 
 const CARD_RENDER_PX = 1000;
 const INITIAL_SEED = 1;
-// Physical bleed in mm matches the PDF builder's `BLEED_MM` constant. Kept
-// local so App can derive the bleed-aware composer diameter without reaching
-// into buildPdf's private internals.
-const BLEED_MM = 2;
 
 const loadImage = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {

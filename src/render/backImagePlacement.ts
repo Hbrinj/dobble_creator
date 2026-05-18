@@ -68,17 +68,12 @@ export function clampScale(requestedScale: number, fillScale: number): number {
  * height × scale / 2)` around `(offsetX, offsetY)` — for the origin to lie
  * inside that rectangle we need `|offsetX| ≤ width × scale / 2` and
  * `|offsetY| ≤ height × scale / 2`.
- *
- * `diameterPx` is reserved for future bleed-aware tuning; today the contract
- * is independent of it.
  */
 export function clampPan(
   offset: { offsetX: number; offsetY: number },
   scale: number,
   imageNaturalSize: { width: number; height: number },
-  diameterPx: number,
 ): { offsetX: number; offsetY: number } {
-  void diameterPx;
   const maxX = (imageNaturalSize.width * scale) / 2;
   const maxY = (imageNaturalSize.height * scale) / 2;
   return {

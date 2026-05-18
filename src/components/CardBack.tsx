@@ -58,8 +58,11 @@ export function CardBack({ onChange }: CardBackProps): JSX.Element {
   // when the image is replaced or the component unmounts.
   const currentObjectUrlRef = useRef<string | null>(null);
 
-  // Propagate every (image, placement) edit to the parent.
+  // Propagate every (image, placement) edit to the parent. Guarded so the
+  // mount-time `(null, {scale:0,...})` from the initial state does not fire —
+  // the parent only learns about the back image once one is actually loaded.
   useEffect(() => {
+    if (!image) return;
     onChange(image, placement);
   }, [image, placement, onChange]);
 
@@ -76,9 +79,10 @@ export function CardBack({ onChange }: CardBackProps): JSX.Element {
   const handleFileChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0] ?? null;
-      // Reset the input value so re-selecting the same file fires a change.
-      event.target.value = '';
       if (!file) return;
+      // Reset the input value so re-selecting the same file fires a change.
+      // Guarded above so a cancelled picker does not mutate the input value.
+      event.target.value = '';
       // Revoke the previous URL before minting the new one.
       if (currentObjectUrlRef.current) {
         URL.revokeObjectURL(currentObjectUrlRef.current);

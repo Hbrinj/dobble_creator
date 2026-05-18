@@ -43,6 +43,17 @@ beforeEach(() => {
   ) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 });
 
+// jsdom does not implement Element.setPointerCapture / hasPointerCapture /
+// releasePointerCapture. Stub them so the pointer-capture drag path runs.
+beforeEach(() => {
+  Element.prototype.setPointerCapture =
+    Element.prototype.setPointerCapture ?? vi.fn();
+  Element.prototype.releasePointerCapture =
+    Element.prototype.releasePointerCapture ?? vi.fn();
+  Element.prototype.hasPointerCapture =
+    Element.prototype.hasPointerCapture ?? (() => true);
+});
+
 const stubImage = (width = 200, height = 100): HTMLImageElement =>
   ({ width, height }) as unknown as HTMLImageElement;
 
@@ -167,7 +178,7 @@ describe('BackImagePreview', () => {
     expect(contexts.some((c) => c.stroke.mock.calls.length > 0)).toBe(true);
   });
 
-  it('emits onChange with an updated offset when the user mouse-drags', () => {
+  it('emits onChange with an updated offset when the user drags via pointer events', () => {
     const onChange = vi.fn();
     const { container } = render(
       <BackImagePreview
@@ -177,12 +188,20 @@ describe('BackImagePreview', () => {
       />,
     );
     const canvas = container.querySelector('canvas')!;
-    fireEvent.mouseDown(canvas, { clientX: 100, clientY: 100 });
-    fireEvent.mouseMove(canvas, { clientX: 110, clientY: 105 });
-    fireEvent.mouseUp(canvas, { clientX: 110, clientY: 105 });
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      clientX: 110,
+      clientY: 105,
+    });
+    fireEvent.pointerUp(canvas, { pointerId: 1, clientX: 110, clientY: 105 });
     expect(onChange).toHaveBeenCalled();
     const last = onChange.mock.calls.at(-1)![0] as BackImagePlacement;
-    // Mouse-move delta was (+10, +5); offset should move by that amount in
+    // Pointer-move delta was (+10, +5); offset should move by that amount in
     // canvas-pixel units (320-px frame → 1:1 within preview).
     expect(last.offsetX).toBeGreaterThan(0);
     expect(last.offsetY).toBeGreaterThan(0);
@@ -198,18 +217,49 @@ describe('BackImagePreview', () => {
       />,
     );
     const canvas = container.querySelector('canvas')!;
-    fireEvent.mouseDown(canvas, { clientX: 0, clientY: 0 });
+    fireEvent.pointerDown(canvas, { pointerId: 1, clientX: 0, clientY: 0 });
     // Drag far enough to exceed the legal pan limit. clampPan should bring
     // it back to ±(width × scale / 2) in the preview frame. Preview frame is
     // 320 px and the image is rendered at fillScale (320 / max(200,100) =
     // 1.6); the legal pan limit on X is then 200 * 1.6 / 2 = 160.
-    fireEvent.mouseMove(canvas, { clientX: 99999, clientY: 0 });
-    fireEvent.mouseUp(canvas, { clientX: 99999, clientY: 0 });
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      clientX: 99999,
+      clientY: 0,
+    });
+    fireEvent.pointerUp(canvas, { pointerId: 1, clientX: 99999, clientY: 0 });
     const last = onChange.mock.calls.at(-1)![0] as BackImagePlacement;
     expect(last.offsetX).toBeLessThanOrEqual(160 + 1e-6);
   });
 
-  it('wheel with negative deltaY scales up by 1.1×', () => {
+  it('keeps emitting drag updates after the pointer leaves the 320 px canvas (pointer capture)', () => {
+    // Regression for the "drag stops mid-gesture if the cursor exits the
+    // 320 px target" bug. The pointer-capture path means pointermove keeps
+    // flowing even when the event coordinates land outside the canvas.
+    const onChange = vi.fn();
+    const { container } = render(
+      <BackImagePreview
+        image={stubImage(200, 100)}
+        placement={basePlacement()}
+        onChange={onChange}
+      />,
+    );
+    const canvas = container.querySelector('canvas')!;
+    fireEvent.pointerDown(canvas, { pointerId: 1, clientX: 50, clientY: 50 });
+    // Pointer leaves the canvas — with pointer capture, the listener still
+    // fires and we still get an offset update.
+    fireEvent.pointerMove(canvas, {
+      pointerId: 1,
+      clientX: 500,
+      clientY: 50,
+    });
+    expect(onChange).toHaveBeenCalled();
+    const last = onChange.mock.calls.at(-1)![0] as BackImagePlacement;
+    expect(last.offsetX).not.toBe(0);
+    fireEvent.pointerUp(canvas, { pointerId: 1, clientX: 500, clientY: 50 });
+  });
+
+  it('wheel with negative deltaY scales up by 1.1× (native handler)', () => {
     const onChange = vi.fn();
     const { container } = render(
       <BackImagePreview
@@ -224,7 +274,7 @@ describe('BackImagePreview', () => {
     expect(last.scale).toBeCloseTo(1.1);
   });
 
-  it('wheel with positive deltaY scales down by 1/1.1', () => {
+  it('wheel with positive deltaY scales down by 1/1.1 (native handler)', () => {
     const onChange = vi.fn();
     const { container } = render(
       <BackImagePreview
@@ -273,5 +323,60 @@ describe('BackImagePreview', () => {
     fireEvent.wheel(canvas, { deltaY: -1, clientX: 220, clientY: 160 });
     const last = onChange.mock.calls.at(-1)![0] as BackImagePlacement;
     expect(last.offsetX).toBeCloseTo(-6);
+  });
+
+  it('the wheel handler calls preventDefault so page-scroll is suppressed', () => {
+    // Regression: a React synthetic `onWheel` is registered passive, so
+    // preventDefault would be a no-op (and the page would also scroll while
+    // the user zooms). The native listener we register in a useEffect with
+    // { passive: false } MUST be the one that fires and MUST consume the
+    // event. We assert that the dispatched WheelEvent's defaultPrevented
+    // flag flips to true after the handler runs.
+    const onChange = vi.fn();
+    const { container } = render(
+      <BackImagePreview
+        image={stubImage(200, 100)}
+        placement={basePlacement()}
+        onChange={onChange}
+      />,
+    );
+    const canvas = container.querySelector('canvas')!;
+    // Dispatch a *real* WheelEvent (cancelable). fireEvent.wheel routes the
+    // event through dispatchEvent, so a native addEventListener handler picks
+    // it up exactly as it would in a browser.
+    const event = new WheelEvent('wheel', {
+      deltaY: -1,
+      clientX: 160,
+      clientY: 160,
+      bubbles: true,
+      cancelable: true,
+    });
+    canvas.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it('the wheel handler is removed when the image is cleared', () => {
+    // If we unmount the native listener with the effect's cleanup, no
+    // onChange should fire on a wheel event after the image goes null.
+    const onChange = vi.fn();
+    const { container, rerender } = render(
+      <BackImagePreview
+        image={stubImage(200, 100)}
+        placement={basePlacement()}
+        onChange={onChange}
+      />,
+    );
+    const canvas = container.querySelector('canvas')!;
+    rerender(
+      <BackImagePreview
+        image={null}
+        placement={basePlacement()}
+        onChange={onChange}
+      />,
+    );
+    onChange.mockClear();
+    fireEvent.wheel(canvas, { deltaY: -1, clientX: 160, clientY: 160 });
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

@@ -75,6 +75,7 @@ vi.mock('./render/buildPdf', async () => {
   return {
     buildPdf: vi.fn(async () => ONE_PIXEL_PNG_BYTES),
     CARDS_PER_SHEET: 6,
+    BLEED_MM: 2,
   };
 });
 

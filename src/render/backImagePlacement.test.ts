@@ -70,43 +70,34 @@ describe('clampPan', () => {
   const image = { width: 200, height: 100 };
 
   it('passes a small offset through unchanged', () => {
-    const out = clampPan({ offsetX: 10, offsetY: 5 }, 1, image, 200);
+    const out = clampPan({ offsetX: 10, offsetY: 5 }, 1, image);
     expect(out).toEqual({ offsetX: 10, offsetY: 5 });
   });
 
   it('clamps a positive-X offset to the image right-edge limit (w*scale/2)', () => {
     // scale=1, w=200 → max |offsetX| = 100
-    const out = clampPan({ offsetX: 500, offsetY: 0 }, 1, image, 200);
+    const out = clampPan({ offsetX: 500, offsetY: 0 }, 1, image);
     expect(out.offsetX).toBe(100);
     expect(out.offsetY).toBe(0);
   });
 
   it('clamps a negative-X offset to the symmetric left-edge limit', () => {
-    const out = clampPan({ offsetX: -500, offsetY: 0 }, 1, image, 200);
+    const out = clampPan({ offsetX: -500, offsetY: 0 }, 1, image);
     expect(out.offsetX).toBe(-100);
   });
 
   it('clamps Y the same way using image height (independent axis)', () => {
     // scale=1, h=100 → max |offsetY| = 50
-    const outPos = clampPan({ offsetX: 0, offsetY: 999 }, 1, image, 200);
+    const outPos = clampPan({ offsetX: 0, offsetY: 999 }, 1, image);
     expect(outPos.offsetY).toBe(50);
-    const outNeg = clampPan({ offsetX: 0, offsetY: -999 }, 1, image, 200);
+    const outNeg = clampPan({ offsetX: 0, offsetY: -999 }, 1, image);
     expect(outNeg.offsetY).toBe(-50);
   });
 
   it('scales the limit by the placement scale (zoomed image allows larger pan)', () => {
     // scale=2, w=200 → max |offsetX| = 200
-    const out = clampPan({ offsetX: 999, offsetY: 0 }, 2, image, 200);
+    const out = clampPan({ offsetX: 999, offsetY: 0 }, 2, image);
     expect(out.offsetX).toBe(200);
-  });
-
-  it('diameterPx is currently unused but kept in the signature for future bleed-aware tuning', () => {
-    // The contract today is independent of diameterPx — image-footprint
-    // contains origin. The arg is reserved so callers can pass it without a
-    // future-breaking change.
-    const a = clampPan({ offsetX: 0, offsetY: 0 }, 1, image, 200);
-    const b = clampPan({ offsetX: 0, offsetY: 0 }, 1, image, 600);
-    expect(a).toEqual(b);
   });
 });
 

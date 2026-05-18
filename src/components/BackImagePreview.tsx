@@ -4,8 +4,7 @@ import {
   useRef,
   useState,
   type JSX,
-  type MouseEvent as ReactMouseEvent,
-  type WheelEvent as ReactWheelEvent,
+  type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { composeBackImageCanvas } from '../render/composeBackImageCanvas';
 import {
@@ -35,8 +34,16 @@ export interface BackImagePreviewProps {
  * PDF export) and overlays a thin amber circular guide stroke so the user
  * can see exactly which pixels will land inside the card's visible area.
  *
- * Interaction: mouse-drag to pan, mouse-wheel to zoom (cursor-centred,
- * 1.1× per notch). Touch / pinch deferred per Decision 9.
+ * Interaction: pointer-drag to pan (with pointer-capture so a fast drag that
+ * leaves the 320 px canvas keeps emitting updates until release), mouse-wheel
+ * to zoom (cursor-centred, 1.1× per notch). Touch / pinch deferred per
+ * Decision 9 — pointer-events fired by mouse input only is fine and unifies
+ * the drag model with what future touch support will need.
+ *
+ * The wheel handler is bound natively (not via React's `onWheel` prop) because
+ * React 17+ registers synthetic wheel listeners with `{ passive: true }`,
+ * which makes `event.preventDefault()` a no-op and would let zoom also scroll
+ * the page.
  */
 export function BackImagePreview({
   image,
@@ -46,6 +53,7 @@ export function BackImagePreview({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // Drag state lives in a ref so React re-renders during drag don't reset it.
   const dragRef = useRef<{
+    pointerId: number;
     startClientX: number;
     startClientY: number;
     startOffsetX: number;
@@ -94,48 +102,14 @@ export function BackImagePreview({
     }
   }, [image, placement]);
 
-  const handleMouseDown = useCallback(
-    (event: ReactMouseEvent<HTMLCanvasElement>) => {
-      if (!image) return;
-      dragRef.current = {
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        startOffsetX: placement.offsetX,
-        startOffsetY: placement.offsetY,
-      };
-      setIsDragging(true);
-    },
-    [image, placement.offsetX, placement.offsetY],
-  );
-
-  const handleMouseMove = useCallback(
-    (event: ReactMouseEvent<HTMLCanvasElement>) => {
-      const start = dragRef.current;
-      if (!start || !image) return;
-      const deltaX = event.clientX - start.startClientX;
-      const deltaY = event.clientY - start.startClientY;
-      const next = clampPan(
-        {
-          offsetX: start.startOffsetX + deltaX,
-          offsetY: start.startOffsetY + deltaY,
-        },
-        placement.scale,
-        { width: image.width, height: image.height },
-        PREVIEW_DIAMETER_PX,
-      );
-      onChange({ ...placement, ...next });
-    },
-    [image, onChange, placement],
-  );
-
-  const endDrag = useCallback(() => {
-    dragRef.current = null;
-    setIsDragging(false);
-  }, []);
-
-  const handleWheel = useCallback(
-    (event: ReactWheelEvent<HTMLCanvasElement>) => {
-      if (!image) return;
+  // Native wheel listener — see component-level JSDoc above for why this
+  // cannot live on the JSX `onWheel` prop. Re-attaches whenever the closure's
+  // captured state (image, placement, onChange, fillScale) changes so the
+  // handler always sees fresh values.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !image) return;
+    const onWheel = (event: WheelEvent): void => {
       event.preventDefault();
       const factor =
         event.deltaY < 0 ? WHEEL_ZOOM_FACTOR : 1 / WHEEL_ZOOM_FACTOR;
@@ -146,7 +120,7 @@ export function BackImagePreview({
       // the *applied* scale change, not the *requested* one.
       const appliedFactor =
         placement.scale > 0 ? nextScale / placement.scale : 1;
-      const rect = event.currentTarget.getBoundingClientRect();
+      const rect = canvas.getBoundingClientRect();
       const cursorXRel = event.clientX - rect.left - PREVIEW_DIAMETER_PX / 2;
       const cursorYRel = event.clientY - rect.top - PREVIEW_DIAMETER_PX / 2;
       // Cursor-centred zoom: the canvas point under the cursor must stay
@@ -160,23 +134,74 @@ export function BackImagePreview({
         { offsetX: rawOffsetX, offsetY: rawOffsetY },
         nextScale,
         { width: image.width, height: image.height },
-        PREVIEW_DIAMETER_PX,
       );
       onChange({
         scale: nextScale,
         offsetX: clamped.offsetX,
         offsetY: clamped.offsetY,
       });
+    };
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return (): void => {
+      canvas.removeEventListener('wheel', onWheel);
+    };
+  }, [
+    fillScale,
+    image,
+    onChange,
+    placement.offsetX,
+    placement.offsetY,
+    placement.scale,
+  ]);
+
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+      if (!image) return;
+      // Capture the pointer so move/up/cancel keep flowing even after the
+      // cursor leaves the 320 px canvas mid-gesture.
+      event.currentTarget.setPointerCapture(event.pointerId);
+      dragRef.current = {
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startOffsetX: placement.offsetX,
+        startOffsetY: placement.offsetY,
+      };
+      setIsDragging(true);
     },
-    [
-      fillScale,
-      image,
-      onChange,
-      placement.offsetX,
-      placement.offsetY,
-      placement.scale,
-    ],
+    [image, placement.offsetX, placement.offsetY],
   );
+
+  const handlePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+      const start = dragRef.current;
+      if (!start || !image) return;
+      if (start.pointerId !== event.pointerId) return;
+      const deltaX = event.clientX - start.startClientX;
+      const deltaY = event.clientY - start.startClientY;
+      const next = clampPan(
+        {
+          offsetX: start.startOffsetX + deltaX,
+          offsetY: start.startOffsetY + deltaY,
+        },
+        placement.scale,
+        { width: image.width, height: image.height },
+      );
+      onChange({ ...placement, ...next });
+    },
+    [image, onChange, placement],
+  );
+
+  const endDrag = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const start = dragRef.current;
+    if (start && start.pointerId === event.pointerId) {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    }
+    dragRef.current = null;
+    setIsDragging(false);
+  }, []);
 
   const cursor = !image ? 'default' : isDragging ? 'grabbing' : 'grab';
 
@@ -185,11 +210,10 @@ export function BackImagePreview({
       ref={canvasRef}
       width={PREVIEW_DIAMETER_PX}
       height={PREVIEW_DIAMETER_PX}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={endDrag}
-      onMouseLeave={endDrag}
-      onWheel={handleWheel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
       aria-label="Card back placement preview"
       style={{ cursor, touchAction: 'none' }}
       className="rounded-full"
