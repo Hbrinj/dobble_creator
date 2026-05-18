@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { drawCard, type DrawCardOptions, type SymbolImage } from './drawCard';
+import {
+  drawCard,
+  computeInsetFraction,
+  type DrawCardOptions,
+  type SymbolImage,
+} from './drawCard';
 import type { PackedCircle } from '../lib/packer';
 
 const DEFAULT_SILHOUETTE = { cx: 0.5, cy: 0.5, r: 0.5 } as const;
@@ -224,5 +229,27 @@ describe('drawCard', () => {
     expect(drawY as number).toBeCloseTo(expectedDrawY, 5);
     expect(drawW as number).toBeCloseTo(expectedDrawW, 5);
     expect(drawH as number).toBeCloseTo(expectedDrawH, 5);
+  });
+});
+
+describe('computeInsetFraction', () => {
+  it('returns marginMm / (diameterMm / 2) for the canonical 80mm + 5mm case', () => {
+    // 5 / 40 = 0.125 — the headline example from Slice 3.
+    expect(computeInsetFraction(80, 5)).toBeCloseTo(0.125, 9);
+  });
+
+  it('matches the documented examples across the diameter range', () => {
+    expect(computeInsetFraction(85, 5)).toBeCloseTo(5 / 42.5, 9);
+    expect(computeInsetFraction(60, 5)).toBeCloseTo(5 / 30, 9);
+    expect(computeInsetFraction(100, 5)).toBeCloseTo(5 / 50, 9);
+  });
+
+  it('returns 0 when the margin is 0 (opt-out path)', () => {
+    expect(computeInsetFraction(85, 0)).toBe(0);
+  });
+
+  it('defensively returns 0 for non-positive diameter (edge case)', () => {
+    expect(computeInsetFraction(0, 5)).toBe(0);
+    expect(computeInsetFraction(-1, 5)).toBe(0);
   });
 });

@@ -24,7 +24,7 @@ import { deckSize, pickOrder, SUPPORTED_PRIMES } from './lib/orderPicker';
 import { mulberry32 } from './lib/prng';
 import { generateIncidence } from './lib/incidence';
 import { packCircles, PackingDidNotConvergeError } from './lib/packer';
-import { drawCard } from './render/drawCard';
+import { drawCard, computeInsetFraction } from './render/drawCard';
 import { extractAlphaMask } from './lib/imageAlpha';
 import {
   computeSilhouetteCircle,
@@ -235,13 +235,21 @@ export function App(): JSX.Element {
       for (const u of previewUrlsRef.current) URL.revokeObjectURL(u);
 
       const rendered: RenderedCard[] = [];
+      // Derive the dimensionless inset fraction once per generate run — the
+      // value is constant across the deck and the helper guards against
+      // diameter <= 0 so a transiently-zeroed setting cannot corrupt the
+      // packer's boundary checks.
+      const insetFraction = computeInsetFraction(
+        printSettings.cardDiameterMm,
+        printSettings.cardEdgeMarginMm,
+      );
       try {
         let packFailure: { cardIndex: number; attempts: number } | null = null;
         for (let cardIdx = 0; cardIdx < incidence.length; cardIdx++) {
           const symbolIndices = incidence[cardIdx]!;
           let packing: ReturnType<typeof packCircles>;
           try {
-            packing = packCircles(symbolIndices.length, rng);
+            packing = packCircles(symbolIndices.length, rng, insetFraction);
           } catch (err) {
             if (err instanceof PackingDidNotConvergeError) {
               // Treat the whole generate run as failed — abandon mid-loop and
@@ -307,7 +315,14 @@ export function App(): JSX.Element {
     } finally {
       setIsGenerating(false);
     }
-  }, [images, order, printSettings.background, seed]);
+  }, [
+    images,
+    order,
+    printSettings.background,
+    printSettings.cardDiameterMm,
+    printSettings.cardEdgeMarginMm,
+    seed,
+  ]);
 
   const handleDownloadPdf = useCallback(async () => {
     if (renderedCards.length === 0) return;
