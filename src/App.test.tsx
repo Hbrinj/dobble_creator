@@ -711,6 +711,50 @@ describe('App integration: card back wiring', () => {
     const [, , backImageArg] = lastCall;
     expect(backImageArg).toBeNull();
   });
+
+  it('dropping a non-image file on the Card-back section surfaces an amber warning notice', async () => {
+    const { App } = await import('./App');
+    render(<App />);
+
+    const cardBackSection = screen.getByRole('region', { name: /card back/i });
+    const pdf = new File([new Uint8Array([1, 2, 3])], 'doc.pdf', {
+      type: 'application/pdf',
+    });
+    await act(async () => {
+      dispatchDrop(cardBackSection, [pdf]);
+      await flushMicrotasks();
+    });
+
+    const list = await screen.findByRole('status');
+    const items = within(list).getAllByRole('listitem');
+    expect(items).toHaveLength(1);
+    expect(items[0]!.textContent).toMatch(
+      /Card back must be a PNG, JPEG, or WebP image/,
+    );
+  });
+
+  it('dropping a valid PNG on the Card-back section loads it without emitting a notice', async () => {
+    const { App } = await import('./App');
+    render(<App />);
+
+    const cardBackSection = screen.getByRole('region', { name: /card back/i });
+    const png = new File([new Uint8Array([1, 2, 3])], 'back.png', {
+      type: 'image/png',
+    });
+    await act(async () => {
+      dispatchDrop(cardBackSection, [png]);
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+
+    // No notice list rendered.
+    expect(screen.queryByRole('status')).toBeNull();
+    // Loaded state — the preview canvas is now present inside the section.
+    expect(
+      within(cardBackSection).getAllByRole('button').length,
+    ).toBeGreaterThan(0);
+    expect(cardBackSection.querySelector('canvas')).not.toBeNull();
+  });
 });
 
 describe('App upload pipeline: silhouette extraction', () => {
