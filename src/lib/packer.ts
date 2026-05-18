@@ -83,7 +83,11 @@ export class PackingDidNotConvergeError extends Error {
  */
 export const __testing = {
   setAttemptPacking(
-    fn: (k: number, rng: () => number) => MutableCircle[],
+    fn: (
+      k: number,
+      rng: () => number,
+      insetFraction: number,
+    ) => MutableCircle[],
   ): () => void {
     const previous = attemptPackingImpl;
     attemptPackingImpl = fn;
@@ -93,14 +97,34 @@ export const __testing = {
   },
 };
 
-export function packCircles(k: number, rng: () => number): PackedCircle[] {
+/**
+ * Pack `k` circles inside the parent disc.
+ *
+ * @param insetFraction Optional inner-margin fraction in `[0, 1)`. When > 0,
+ *   every circle is kept inside the disc of radius `1 - insetFraction` and
+ *   the seed-time area budget is scaled by `(1 - insetFraction)²` so the
+ *   convergence envelope stays at its tuned 65 % of the inner disc. At `0`
+ *   (the default) every code path reduces to the pre-feature arithmetic
+ *   exactly, preserving the deterministic seed contract for callers that
+ *   opt out of the margin.
+ */
+export function packCircles(
+  k: number,
+  rng: () => number,
+  insetFraction = 0,
+): PackedCircle[] {
   if (!Number.isInteger(k) || k <= 0) {
     throw new Error(`packCircles: k must be a positive integer, got ${k}`);
+  }
+  if (!Number.isFinite(insetFraction) || insetFraction < 0 || insetFraction >= 1) {
+    throw new Error(
+      `packCircles: insetFraction must be in [0, 1), got ${insetFraction}`,
+    );
   }
 
   // Attempt 1 uses the caller's rng directly so a single-shot success path
   // never spins the retry-seed-derivation loop.
-  let circles = attemptPackingImpl(k, rng);
+  let circles = attemptPackingImpl(k, rng, insetFraction);
   if (worstPairOverlap(circles) < OVERLAP_TOLERANCE) {
     return freezeOutput(circles);
   }
@@ -110,7 +134,7 @@ export function packCircles(k: number, rng: () => number): PackedCircle[] {
     // for any given input rng.
     const retrySeed = Math.floor(rng() * 0xffffffff) >>> 0;
     const retryRng = mulberry32(retrySeed);
-    circles = attemptPackingImpl(k, retryRng);
+    circles = attemptPackingImpl(k, retryRng, insetFraction);
     if (worstPairOverlap(circles) < OVERLAP_TOLERANCE) {
       return freezeOutput(circles);
     }
@@ -141,30 +165,49 @@ const worstPairOverlap = (circles: readonly MutableCircle[]): number => {
   return worst;
 };
 
-const attemptPacking = (k: number, rng: () => number): MutableCircle[] => {
-  const circles = seedCircles(k, rng);
+const attemptPacking = (
+  k: number,
+  rng: () => number,
+  insetFraction: number,
+): MutableCircle[] => {
+  const boundary = 1 - insetFraction;
+  const circles = seedCircles(k, rng, insetFraction, boundary);
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
-    const moved = relaxOnce(circles);
+    const moved = relaxOnce(circles, boundary);
     if (moved < STOP_THRESHOLD) break;
   }
 
   // Final clamp so floating-point drift can't push a circle marginally
-  // outside the parent. This can re-introduce micro pair-overlap, which the
-  // caller catches via `worstPairOverlap` and resolves by retrying with a
-  // fresh seed.
-  clampInsideParent(circles);
+  // outside the (effective) parent. This can re-introduce micro pair-overlap,
+  // which the caller catches via `worstPairOverlap` and resolves by retrying
+  // with a fresh seed.
+  clampInsideParent(circles, boundary);
 
   return circles;
 };
 
 // `attemptPackingImpl` is the indirection the retry loop calls. `__testing`
 // swaps it in tests; production code always sees `attemptPacking`.
-let attemptPackingImpl: (k: number, rng: () => number) => MutableCircle[] =
-  attemptPacking;
+let attemptPackingImpl: (
+  k: number,
+  rng: () => number,
+  insetFraction: number,
+) => MutableCircle[] = attemptPacking;
 
-const seedCircles = (k: number, rng: () => number): MutableCircle[] => {
-  const baseRadius = Math.sqrt(PACKING_FRACTION / k);
+const seedCircles = (
+  k: number,
+  rng: () => number,
+  insetFraction: number,
+  boundary: number,
+): MutableCircle[] => {
+  // Scale the area budget so the seeded child total area stays at the tuned
+  // 65 % of the *inner* disc (radius `1 - insetFraction`). At insetFraction=0
+  // this reduces exactly to `Math.sqrt(PACKING_FRACTION / k)` — the
+  // pre-feature arithmetic — preserving the deterministic seed contract.
+  const baseRadius = Math.sqrt(
+    (PACKING_FRACTION * (1 - insetFraction) ** 2) / k,
+  );
   const circles: MutableCircle[] = [];
   for (let i = 0; i < k; i++) {
     const radius = baseRadius * (1 + (rng() * 2 - 1) * RADIUS_SPREAD);
@@ -174,7 +217,7 @@ const seedCircles = (k: number, rng: () => number): MutableCircle[] => {
     let y = 0;
     if (k > 1) {
       const angle = (i / k) * Math.PI * 2 + rng() * 0.4;
-      const dist = (1 - radius) * (0.4 + rng() * 0.4);
+      const dist = (boundary - radius) * (0.4 + rng() * 0.4);
       x = Math.cos(angle) * dist;
       y = Math.sin(angle) * dist;
     }
@@ -183,10 +226,10 @@ const seedCircles = (k: number, rng: () => number): MutableCircle[] => {
   return circles;
 };
 
-const relaxOnce = (circles: MutableCircle[]): number => {
+const relaxOnce = (circles: MutableCircle[], boundary: number): number => {
   let totalDisplacement = 0;
   totalDisplacement += resolvePairOverlaps(circles);
-  totalDisplacement += resolveBoundaryOverlaps(circles);
+  totalDisplacement += resolveBoundaryOverlaps(circles, boundary);
   return totalDisplacement;
 };
 
@@ -216,11 +259,14 @@ const resolvePairOverlaps = (circles: MutableCircle[]): number => {
   return displacement;
 };
 
-const resolveBoundaryOverlaps = (circles: MutableCircle[]): number => {
+const resolveBoundaryOverlaps = (
+  circles: MutableCircle[],
+  boundary: number,
+): number => {
   let displacement = 0;
   for (const c of circles) {
     const dist = Math.hypot(c.x, c.y);
-    const maxDist = 1 - c.r;
+    const maxDist = boundary - c.r;
     if (dist <= maxDist) continue;
     if (dist === 0) continue;
     const overshoot = dist - maxDist;
@@ -231,10 +277,13 @@ const resolveBoundaryOverlaps = (circles: MutableCircle[]): number => {
   return displacement;
 };
 
-const clampInsideParent = (circles: MutableCircle[]): void => {
+const clampInsideParent = (
+  circles: MutableCircle[],
+  boundary: number,
+): void => {
   for (const c of circles) {
     const dist = Math.hypot(c.x, c.y);
-    const maxDist = 1 - c.r;
+    const maxDist = boundary - c.r;
     if (dist > maxDist && dist > 0) {
       const scale = maxDist / dist;
       c.x *= scale;
