@@ -38,7 +38,10 @@ import {
   type PrintSettings as BuildPdfSettings,
 } from './render/buildPdf';
 import { composeBackImageCanvas } from './render/composeBackImageCanvas';
-import type { BackImagePlacement } from './render/backImagePlacement';
+import {
+  PREVIEW_DIAMETER_PX as BACK_PREVIEW_PX,
+  type BackImagePlacement,
+} from './render/backImagePlacement';
 
 interface UploadedImage {
   readonly id: string;
@@ -56,17 +59,10 @@ interface RenderedCard {
 
 const CARD_RENDER_PX = 1000;
 const INITIAL_SEED = 1;
-// Composer diameter for the PDF back image: matches the canvas pixel size
-// used for the front cards so the composed PNG has equivalent resolution.
-// pdf-lib stretches the embedded image to (cardDiameter + 2×bleed) at print
-// time — we mirror that aspect by composing into a single square canvas of
-// the same pixel count and letting the circular clip live at radius = half
-// the composer diameter (Decision 11: bleed-aware clip).
-const BACK_COMPOSE_PX = CARD_RENDER_PX;
-// The BackImagePreview renders at this many pixels; the App scales the
-// placement up by (BACK_COMPOSE_PX / BACK_PREVIEW_PX) so the composed PDF
-// PNG carries the same crop/zoom the user dialled in at preview size.
-const BACK_PREVIEW_PX = 320;
+// Physical bleed in mm matches the PDF builder's `BLEED_MM` constant. Kept
+// local so App can derive the bleed-aware composer diameter without reaching
+// into buildPdf's private internals.
+const BLEED_MM = 2;
 
 const loadImage = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
@@ -363,13 +359,28 @@ export function App(): JSX.Element {
       background: printSettings.background,
     };
     // Compose the back image at export time using the same helper the live
-    // preview draws with — single source of truth (Decision 5). The composer
-    // diameter scales the placement (which is in 320-px preview units) up to
-    // the BACK_COMPOSE_PX render resolution so the composed PNG carries the
-    // same crop/zoom the user dialled in.
+    // preview draws with — single source of truth (Decision 5).
+    //
+    // The preview's PREVIEW_DIAMETER_PX represents the *card* (post-trim)
+    // area, so the placement units are "canvas pixels per source pixel in
+    // the card frame". For the PDF we want the composed PNG to cover the
+    // *bleed-square* (card + bleed) so the printed back extends to the bleed
+    // boundary (Decision 11). We therefore:
+    //   1. Scale the placement up by CARD_RENDER_PX / PREVIEW_DIAMETER_PX
+    //      (card-frame scale-up — placement keeps its semantic meaning).
+    //   2. Allocate the composer canvas at the bleed-square size,
+    //      CARD_RENDER_PX × (card_mm + 2×bleed_mm) / card_mm. Because the
+    //      placement only fills the card area, any source-image overflow
+    //      past the card circle flows into the bleed ring inside the larger
+    //      composer canvas — exactly the trim-safety pattern fronts use.
     let composedBack: { pngBytes: Uint8Array } | null = null;
     if (backImage) {
-      const scaleUp = BACK_COMPOSE_PX / BACK_PREVIEW_PX;
+      const bleedMm = printSettings.bleed ? BLEED_MM : 0;
+      const bleedRatio =
+        (printSettings.cardDiameterMm + 2 * bleedMm) /
+        printSettings.cardDiameterMm;
+      const composeDiameterPx = Math.round(CARD_RENDER_PX * bleedRatio);
+      const scaleUp = CARD_RENDER_PX / BACK_PREVIEW_PX;
       const renderPlacement: BackImagePlacement = {
         scale: backPlacement.scale * scaleUp,
         offsetX: backPlacement.offsetX * scaleUp,
@@ -378,7 +389,7 @@ export function App(): JSX.Element {
       const composed = composeBackImageCanvas(
         backImage,
         renderPlacement,
-        BACK_COMPOSE_PX,
+        composeDiameterPx,
       );
       composedBack = { pngBytes: await canvasToPngBytes(composed) };
     }

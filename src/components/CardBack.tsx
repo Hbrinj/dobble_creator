@@ -10,10 +10,9 @@ import { UploadCloud } from 'lucide-react';
 import { BackImagePreview } from './BackImagePreview';
 import {
   computeFillScale,
+  PREVIEW_DIAMETER_PX,
   type BackImagePlacement,
 } from '../render/backImagePlacement';
-
-const PREVIEW_DIAMETER_PX = 320;
 
 const fillDefault = (width: number, height: number): BackImagePlacement => ({
   scale: computeFillScale(width, height, PREVIEW_DIAMETER_PX),

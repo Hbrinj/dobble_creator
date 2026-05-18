@@ -12,10 +12,10 @@ import {
   clampPan,
   clampScale,
   computeFillScale,
+  PREVIEW_DIAMETER_PX,
   type BackImagePlacement,
 } from '../render/backImagePlacement';
 
-const PREVIEW_DIAMETER_PX = 320;
 const WHEEL_ZOOM_FACTOR = 1.1;
 const GUIDE_STROKE_COLOR = '#f59e0b'; // amber-500, matches the project accent
 const GUIDE_STROKE_WIDTH_PX = 1;

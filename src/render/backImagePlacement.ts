@@ -20,6 +20,20 @@ export const DEFAULT_PLACEMENT_FACTORS = {
 } as const;
 
 /**
+ * Pixel diameter of the live preview canvas. Shared by `BackImagePreview`,
+ * `CardBack`, and the App's PDF-export scale-up so the placement units stay
+ * consistent across the preview and the rasterised PDF back.
+ *
+ * Semantically the preview represents the *card* area (post-trim), not the
+ * bleed area. PDF-time compositing renders into a larger canvas covering the
+ * bleed-square; the placement is uniformly scaled up by
+ * `(PDF render-px) / PREVIEW_DIAMETER_PX` so the same source-image region
+ * that fills the preview also fills the printed card area, while any
+ * source-image overflow flows into the bleed area (Decision 11).
+ */
+export const PREVIEW_DIAMETER_PX = 320;
+
+/**
  * Decision 3 default — scale the image so its longer edge matches the
  * target diameter (CSS `object-fit: cover` analogue). Returns 0 defensively
  * for degenerate inputs so a transiently-zeroed dimension cannot produce
