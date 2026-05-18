@@ -54,14 +54,24 @@ const makeStubContext = (): {
 
 const makeStubCanvas = (
   size: number,
-): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; calls: string[]; drawImageArgs: unknown[][] } => {
+): {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  calls: string[];
+  drawImageArgs: unknown[][];
+} => {
   const stub = makeStubContext();
   const canvas = {
     width: size,
     height: size,
     getContext: vi.fn(() => stub.ctx),
   } as unknown as HTMLCanvasElement;
-  return { canvas, ctx: stub.ctx, calls: stub.calls, drawImageArgs: stub.drawImageArgs };
+  return {
+    canvas,
+    ctx: stub.ctx,
+    calls: stub.calls,
+    drawImageArgs: stub.drawImageArgs,
+  };
 };
 
 const makeSymbol = (
@@ -88,7 +98,13 @@ describe('drawCard', () => {
   it('draws an image once per packed circle', () => {
     const { canvas, calls } = makeStubCanvas(1000);
     const symbols = [makeSymbol('a'), makeSymbol('b'), makeSymbol('c')];
-    drawCard(canvas, symbols, stubPacking, [0, Math.PI / 4, Math.PI / 2], baseOptions);
+    drawCard(
+      canvas,
+      symbols,
+      stubPacking,
+      [0, Math.PI / 4, Math.PI / 2],
+      baseOptions,
+    );
     const drawImageCount = calls.filter((c) => c === 'drawImage').length;
     expect(drawImageCount).toBe(3);
   });
@@ -98,7 +114,16 @@ describe('drawCard', () => {
     const symbols = [makeSymbol('a'), makeSymbol('b'), makeSymbol('c')];
     drawCard(canvas, symbols, stubPacking, [0, 0, 0], baseOptions);
     // For each symbol we expect at minimum these calls in order: save, beginPath, arc, clip, translate, rotate, drawImage, restore
-    const expectedPattern = ['save', 'beginPath', 'arc', 'clip', 'translate', 'rotate', 'drawImage', 'restore'];
+    const expectedPattern = [
+      'save',
+      'beginPath',
+      'arc',
+      'clip',
+      'translate',
+      'rotate',
+      'drawImage',
+      'restore',
+    ];
     for (let i = 0; i < 3; i++) {
       // find the i-th drawImage and inspect the surrounding sequence
       const drawIdx = calls.reduce<number[]>((acc, c, idx) => {
@@ -192,7 +217,7 @@ describe('drawCard', () => {
     expect(drawH as number).toBeGreaterThan(0);
   });
 
-  it("draws each image scaled and positioned so its silhouette circle maps to the slot circle", () => {
+  it('draws each image scaled and positioned so its silhouette circle maps to the slot circle', () => {
     // Single-slot fixture: slot at (0.3, 0.4) with radius 0.2 in parent-unit
     // frame (parent radius = 1). On a 1000px canvas the slot maps to:
     //   slotCxPx = 500 + 0.3 * 500 = 650

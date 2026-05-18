@@ -202,4 +202,81 @@ describe('PrintSettings', () => {
     expect(slider.min).toBe('60');
     expect(slider.max).toBe('100');
   });
+
+  describe('card edge margin (mm)', () => {
+    it('renders the margin input with the default value 5', () => {
+      render(
+        <PrintSettings
+          value={baseValue()}
+          backImage={null}
+          onChange={vi.fn()}
+          onBackImageChange={vi.fn()}
+        />,
+      );
+      const input = screen.getByLabelText(/edge margin/i) as HTMLInputElement;
+      expect(input.value).toBe('5');
+    });
+
+    it('declares min=0, max=15, step=1 on the margin input', () => {
+      render(
+        <PrintSettings
+          value={baseValue()}
+          backImage={null}
+          onChange={vi.fn()}
+          onBackImageChange={vi.fn()}
+        />,
+      );
+      const input = screen.getByLabelText(/edge margin/i) as HTMLInputElement;
+      expect(input.min).toBe('0');
+      expect(input.max).toBe('15');
+      expect(input.step).toBe('1');
+    });
+
+    it('emits onChange with the new margin via the same setter shape as cardDiameterMm', () => {
+      const onChange = vi.fn();
+      render(
+        <PrintSettings
+          value={baseValue()}
+          backImage={null}
+          onChange={onChange}
+          onBackImageChange={vi.fn()}
+        />,
+      );
+      const input = screen.getByLabelText(/edge margin/i) as HTMLInputElement;
+      // Range inputs: fireEvent.change is the RTL-recommended path because
+      // user-event has no real keyboard model for sliders — matches the
+      // existing cardDiameterMm test above.
+      fireEvent.change(input, { target: { value: '10' } });
+      expect(onChange).toHaveBeenCalledWith({
+        ...baseValue(),
+        cardEdgeMarginMm: 10,
+      });
+    });
+
+    it('clamps margin values outside [0, 15] to the legal range (edge case)', () => {
+      const onChange = vi.fn();
+      render(
+        <PrintSettings
+          value={baseValue()}
+          backImage={null}
+          onChange={onChange}
+          onBackImageChange={vi.fn()}
+        />,
+      );
+      const input = screen.getByLabelText(/edge margin/i) as HTMLInputElement;
+      // Range inputs natively clamp via min/max, but the change handler must
+      // mirror cardDiameterMm's defensive clamp so programmatic values can't
+      // slip an out-of-range setting through.
+      fireEvent.change(input, { target: { value: '99' } });
+      expect(onChange).toHaveBeenCalledWith({
+        ...baseValue(),
+        cardEdgeMarginMm: 15,
+      });
+      fireEvent.change(input, { target: { value: '-5' } });
+      expect(onChange).toHaveBeenCalledWith({
+        ...baseValue(),
+        cardEdgeMarginMm: 0,
+      });
+    });
+  });
 });

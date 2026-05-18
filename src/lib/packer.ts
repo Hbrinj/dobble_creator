@@ -116,7 +116,11 @@ export function packCircles(
   if (!Number.isInteger(k) || k <= 0) {
     throw new Error(`packCircles: k must be a positive integer, got ${k}`);
   }
-  if (!Number.isFinite(insetFraction) || insetFraction < 0 || insetFraction >= 1) {
+  if (
+    !Number.isFinite(insetFraction) ||
+    insetFraction < 0 ||
+    insetFraction >= 1
+  ) {
     throw new Error(
       `packCircles: insetFraction must be in [0, 1), got ${insetFraction}`,
     );
