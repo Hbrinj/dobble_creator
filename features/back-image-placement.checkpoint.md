@@ -1,7 +1,7 @@
 # Checkpoint: back-image-placement
 
 ## Status
-Step 2 — Implement — COMPLETE (awaiting user approval at post-implementation review gate before push + PR)
+Step 2 — Implement — COMPLETE (PR #7 merged into main as `db5f1fb` on 2026-05-18)
 
 ## Completed steps
 - [x] Step 1 — Plan (`tasks/back-image-placement.md` finalised: 11 Decisions, 5 Slices, 0 Open Questions, 1 Deferred consolidated to `/TODO.md`)
