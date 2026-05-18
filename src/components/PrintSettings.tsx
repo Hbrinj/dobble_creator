@@ -1,4 +1,4 @@
-import { useCallback, useRef, type ChangeEvent, type JSX } from 'react';
+import { useCallback, type ChangeEvent, type JSX } from 'react';
 import {
   MAX_CARD_EDGE_MARGIN_MM,
   MAX_DIAMETER_MM,
@@ -9,27 +9,19 @@ import {
 
 export interface PrintSettingsProps {
   readonly value: PrintSettingsValue;
-  /** Optional user-supplied back image. */
-  readonly backImage: File | null;
   readonly onChange: (next: PrintSettingsValue) => void;
-  readonly onBackImageChange: (file: File | null) => void;
 }
 
 /**
  * Print-layout controls: card diameter, page size, crop marks, bleed, card
- * background, and an optional single-file card-back upload slot. All values
- * are controlled by the parent; this component just renders the current value
- * and emits `onChange` (for the settings struct) or `onBackImageChange` (for
- * the back file) on user input.
+ * background, and the card-edge margin. The card-back image and its
+ * placement live in the dedicated `CardBack` section now (Decision 6 from
+ * the back-image-placement feature).
  */
 export function PrintSettings({
   value,
-  backImage,
   onChange,
-  onBackImageChange,
 }: PrintSettingsProps): JSX.Element {
-  const backInputRef = useRef<HTMLInputElement>(null);
-
   const update = useCallback(
     <K extends keyof PrintSettingsValue>(
       key: K,
@@ -95,25 +87,10 @@ export function PrintSettings({
     [update],
   );
 
-  const handleBackImageChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0] ?? null;
-      onBackImageChange(file);
-    },
-    [onBackImageChange],
-  );
-
-  const handleRemoveBackImage = useCallback(() => {
-    onBackImageChange(null);
-    if (backInputRef.current) backInputRef.current.value = '';
-  }, [onBackImageChange]);
-
   const rowClasses = 'flex items-center gap-3 flex-wrap';
   const labelClasses = 'text-slate-200';
   const selectClasses =
     'bg-slate-800 border border-slate-700 rounded-md text-slate-100 px-2 py-1 focus:outline-2 focus:outline-amber-500 focus:outline-offset-1';
-  const ghostButtonClasses =
-    'rounded-lg px-3 py-1.5 text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2';
 
   return (
     <section
@@ -214,33 +191,6 @@ export function PrintSettings({
           <option value="white">White</option>
           <option value="transparent">Transparent</option>
         </select>
-      </div>
-
-      <div className={rowClasses}>
-        <label htmlFor="print-settings-back-image" className={labelClasses}>
-          Card back image
-        </label>
-        <input
-          id="print-settings-back-image"
-          ref={backInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          onChange={handleBackImageChange}
-          className="text-slate-300 text-sm"
-        />
-        {backImage ? (
-          <>
-            <span className="text-slate-300 text-sm">{backImage.name}</span>
-            <button
-              type="button"
-              onClick={handleRemoveBackImage}
-              aria-label="Remove back image"
-              className={ghostButtonClasses}
-            >
-              Remove
-            </button>
-          </>
-        ) : null}
       </div>
     </section>
   );

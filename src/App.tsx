@@ -16,6 +16,7 @@ import {
 } from './components/ThumbnailGrid';
 import { DeckSettings } from './components/DeckSettings';
 import { PrintSettings } from './components/PrintSettings';
+import { CardBack } from './components/CardBack';
 import {
   DEFAULT_PRINT_SETTINGS,
   type PrintSettingsValue,
@@ -33,9 +34,15 @@ import {
 } from './lib/silhouette';
 import {
   buildPdf,
+  BLEED_MM,
   type CardImage,
   type PrintSettings as BuildPdfSettings,
 } from './render/buildPdf';
+import { composeBackImageCanvas } from './render/composeBackImageCanvas';
+import {
+  PREVIEW_DIAMETER_PX as BACK_PREVIEW_PX,
+  type BackImagePlacement,
+} from './render/backImagePlacement';
 
 interface UploadedImage {
   readonly id: string;
@@ -99,7 +106,19 @@ export function App(): JSX.Element {
   const [printSettings, setPrintSettings] = useState<PrintSettingsValue>(
     DEFAULT_PRINT_SETTINGS,
   );
-  const [backImageFile, setBackImageFile] = useState<File | null>(null);
+  const [backImage, setBackImage] = useState<HTMLImageElement | null>(null);
+  const [backPlacement, setBackPlacement] = useState<BackImagePlacement>({
+    scale: 0,
+    offsetX: 0,
+    offsetY: 0,
+  });
+  const handleBackChange = useCallback(
+    (image: HTMLImageElement | null, placement: BackImagePlacement) => {
+      setBackImage(image);
+      setBackPlacement(placement);
+    },
+    [],
+  );
   const [renderedCards, setRenderedCards] = useState<readonly RenderedCard[]>(
     [],
   );
@@ -336,12 +355,42 @@ export function App(): JSX.Element {
       bleed: printSettings.bleed,
       background: printSettings.background,
     };
-    const backImage = backImageFile
-      ? {
-          pngBytes: new Uint8Array(await backImageFile.arrayBuffer()),
-        }
-      : null;
-    const bytes = await buildPdf(cards, pdfSettings, backImage);
+    // Compose the back image at export time using the same helper the live
+    // preview draws with — single source of truth (Decision 5).
+    //
+    // The preview's PREVIEW_DIAMETER_PX represents the *card* (post-trim)
+    // area, so the placement units are "canvas pixels per source pixel in
+    // the card frame". For the PDF we want the composed PNG to cover the
+    // *bleed-square* (card + bleed) so the printed back extends to the bleed
+    // boundary (Decision 11). We therefore:
+    //   1. Scale the placement up by CARD_RENDER_PX / PREVIEW_DIAMETER_PX
+    //      (card-frame scale-up — placement keeps its semantic meaning).
+    //   2. Allocate the composer canvas at the bleed-square size,
+    //      CARD_RENDER_PX × (card_mm + 2×bleed_mm) / card_mm. Because the
+    //      placement only fills the card area, any source-image overflow
+    //      past the card circle flows into the bleed ring inside the larger
+    //      composer canvas — exactly the trim-safety pattern fronts use.
+    let composedBack: { pngBytes: Uint8Array } | null = null;
+    if (backImage) {
+      const bleedMm = printSettings.bleed ? BLEED_MM : 0;
+      const bleedRatio =
+        (printSettings.cardDiameterMm + 2 * bleedMm) /
+        printSettings.cardDiameterMm;
+      const composeDiameterPx = Math.round(CARD_RENDER_PX * bleedRatio);
+      const scaleUp = CARD_RENDER_PX / BACK_PREVIEW_PX;
+      const renderPlacement: BackImagePlacement = {
+        scale: backPlacement.scale * scaleUp,
+        offsetX: backPlacement.offsetX * scaleUp,
+        offsetY: backPlacement.offsetY * scaleUp,
+      };
+      const composed = composeBackImageCanvas(
+        backImage,
+        renderPlacement,
+        composeDiameterPx,
+      );
+      composedBack = { pngBytes: await canvasToPngBytes(composed) };
+    }
+    const bytes = await buildPdf(cards, pdfSettings, composedBack);
     // Copy into a fresh ArrayBuffer-backed Uint8Array; pdf-lib's signature is
     // `Uint8Array<ArrayBufferLike>` which Blob's BlobPart does not accept
     // directly (SharedArrayBuffer is excluded). The copy keeps the type narrow.
@@ -359,7 +408,8 @@ export function App(): JSX.Element {
     // simplest reliable cleanup is on the next macrotask.
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }, [
-    backImageFile,
+    backImage,
+    backPlacement,
     printSettings.background,
     printSettings.bleed,
     printSettings.cardDiameterMm,
@@ -430,12 +480,9 @@ export function App(): JSX.Element {
           />
         ) : null}
 
-        <PrintSettings
-          value={printSettings}
-          backImage={backImageFile}
-          onChange={setPrintSettings}
-          onBackImageChange={setBackImageFile}
-        />
+        <PrintSettings value={printSettings} onChange={setPrintSettings} />
+
+        <CardBack onChange={handleBackChange} />
 
         {renderedCards.length > 0 ? (
           <section

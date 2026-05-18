@@ -36,7 +36,12 @@ const PAGE_SIZES_PT: Record<PageSize, { widthPt: number; heightPt: number }> = {
 };
 
 const CROP_MARK_LEN_PT = mmToPt(3);
-const BLEED_MM = 2;
+/**
+ * Physical bleed in mm added around every card when `settings.bleed === true`.
+ * Exported so callers (e.g. App's back-image composer scale-up) can derive
+ * matching bleed-aware sizes without duplicating the constant.
+ */
+export const BLEED_MM = 2;
 
 interface SlotPosition {
   readonly centreXPt: number;
@@ -93,7 +98,13 @@ export async function buildPdf(
       const mirroredSlots = mirrorSlots(slotsPerSheet, widthPt);
       for (let i = 0; i < sheetCards.length; i++) {
         const slot = mirroredSlots[i]!;
-        drawCardImageAtSlot(backPage, embeddedBack, slot, cardRadiusPt, bleedPt);
+        drawCardImageAtSlot(
+          backPage,
+          embeddedBack,
+          slot,
+          cardRadiusPt,
+          bleedPt,
+        );
         if (settings.cropMarks) {
           drawCropMarks(backPage, slot, cardRadiusPt, widthPt, heightPt);
         }
@@ -122,7 +133,8 @@ const computeSlots = (
   const slots: SlotPosition[] = [];
   for (let row = 0; row < GRID_ROWS; row++) {
     for (let col = 0; col < GRID_COLS; col++) {
-      const centreXPt = hMargin + cardRadiusPt + col * (cardDiameterPt + hMargin);
+      const centreXPt =
+        hMargin + cardRadiusPt + col * (cardDiameterPt + hMargin);
       const centreYPt =
         pageHeightPt -
         (vMargin + cardRadiusPt + row * (cardDiameterPt + vMargin));
