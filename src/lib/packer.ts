@@ -175,7 +175,7 @@ const attemptPacking = (
   insetFraction: number,
 ): MutableCircle[] => {
   const boundary = 1 - insetFraction;
-  const circles = seedCircles(k, rng, insetFraction, boundary);
+  const circles = seedCircles(k, rng, boundary);
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
     const moved = relaxOnce(circles, boundary);
@@ -202,16 +202,14 @@ let attemptPackingImpl: (
 const seedCircles = (
   k: number,
   rng: () => number,
-  insetFraction: number,
   boundary: number,
 ): MutableCircle[] => {
   // Scale the area budget so the seeded child total area stays at the tuned
-  // 65 % of the *inner* disc (radius `1 - insetFraction`). At insetFraction=0
-  // this reduces exactly to `Math.sqrt(PACKING_FRACTION / k)` — the
-  // pre-feature arithmetic — preserving the deterministic seed contract.
-  const baseRadius = Math.sqrt(
-    (PACKING_FRACTION * (1 - insetFraction) ** 2) / k,
-  );
+  // 65 % of the *inner* disc (radius `boundary = 1 - insetFraction`). At
+  // insetFraction=0 → boundary=1 this reduces exactly to
+  // `Math.sqrt(PACKING_FRACTION / k)` — the pre-feature arithmetic —
+  // preserving the deterministic seed contract.
+  const baseRadius = Math.sqrt((PACKING_FRACTION * boundary ** 2) / k);
   const circles: MutableCircle[] = [];
   for (let i = 0; i < k; i++) {
     const radius = baseRadius * (1 + (rng() * 2 - 1) * RADIUS_SPREAD);
