@@ -1,3 +1,5 @@
+import type { BackImagePlacement } from './backImagePlacement';
+
 /**
  * Source-image surface the composer needs: a `CanvasImageSource`-compatible
  * value plus its drawable extent. Both `HTMLImageElement` and
@@ -7,19 +9,6 @@ export type BackImageSource = CanvasImageSource & {
   readonly width: number;
   readonly height: number;
 };
-
-/**
- * Placement of a back image inside the composer's circular frame. All values
- * are in canvas-pixel units relative to the composer-canvas centre, so
- * `{ scale: 1, offsetX: 0, offsetY: 0 }` puts the image centre at the circle
- * centre at native size. Slice 2 will move this type into a dedicated
- * `backImagePlacement` module and re-export it from there.
- */
-export interface BackImagePlacement {
-  readonly scale: number;
-  readonly offsetX: number;
-  readonly offsetY: number;
-}
 
 /**
  * Rasterise `image` onto an offscreen canvas of `diameterPx × diameterPx`,
