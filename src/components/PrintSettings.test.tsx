@@ -10,9 +10,10 @@ import {
 const baseValue = (): PrintSettingsValue => ({ ...DEFAULT_PRINT_SETTINGS });
 
 describe('PrintSettings', () => {
-  it('defaults match Decision 10 (85mm, A4, crop marks on, bleed on, white background, no back image)', () => {
+  it('defaults match Decision 10 (85mm, A4, crop marks on, bleed on, white background, no back image) plus the 5 mm card edge margin from card-edge-margin Decision 2', () => {
     expect(DEFAULT_PRINT_SETTINGS).toEqual({
       cardDiameterMm: 85,
+      cardEdgeMarginMm: 5,
       pageSize: 'A4',
       cropMarks: true,
       bleed: true,
