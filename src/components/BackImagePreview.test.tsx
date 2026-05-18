@@ -55,7 +55,11 @@ const basePlacement = (): BackImagePlacement => ({
 describe('BackImagePreview', () => {
   it('renders a 320×320 canvas', () => {
     const { container } = render(
-      <BackImagePreview image={null} placement={basePlacement()} onChange={vi.fn()} />,
+      <BackImagePreview
+        image={null}
+        placement={basePlacement()}
+        onChange={vi.fn()}
+      />,
     );
     const canvas = container.querySelector('canvas');
     expect(canvas).not.toBeNull();
@@ -85,7 +89,11 @@ describe('BackImagePreview', () => {
       return ctx as unknown as CanvasRenderingContext2D;
     }) as unknown as typeof HTMLCanvasElement.prototype.getContext;
     render(
-      <BackImagePreview image={null} placement={basePlacement()} onChange={vi.fn()} />,
+      <BackImagePreview
+        image={null}
+        placement={basePlacement()}
+        onChange={vi.fn()}
+      />,
     );
     expect(ctxRef!.drawImage).not.toHaveBeenCalled();
   });

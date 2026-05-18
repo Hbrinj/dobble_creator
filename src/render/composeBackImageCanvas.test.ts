@@ -81,11 +81,7 @@ describe('composeBackImageCanvas', () => {
 
   it('draws the image with its centre at the transformed origin (drawImage at -w/2, -h/2)', () => {
     const img = stubImage(200, 100);
-    composeBackImageCanvas(
-      img,
-      { scale: 1, offsetX: 0, offsetY: 0 },
-      200,
-    );
+    composeBackImageCanvas(img, { scale: 1, offsetX: 0, offsetY: 0 }, 200);
     expect(ctx.drawImage).toHaveBeenCalledWith(img, -100, -50);
   });
 

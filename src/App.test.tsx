@@ -97,6 +97,7 @@ beforeEach(() => {
         clip: vi.fn(),
         translate: vi.fn(),
         rotate: vi.fn(),
+        scale: vi.fn(),
         drawImage: vi.fn(),
         fillRect: vi.fn(),
         stroke: vi.fn(),
@@ -609,6 +610,105 @@ describe('App integration: generate flow', () => {
     } finally {
       process.off('unhandledRejection', onUnhandled);
     }
+  });
+});
+
+describe('App integration: card back wiring', () => {
+  it('after the user uploads a back image, Download PDF passes a non-null BackImage with composed PNG bytes to buildPdf', async () => {
+    const { App } = await import('./App');
+    // Re-import the mocked buildPdf so we can inspect the call args.
+    const buildPdfModule = await import('./render/buildPdf');
+    const buildPdfMock = vi.mocked(buildPdfModule.buildPdf);
+    buildPdfMock.mockClear();
+
+    render(<App />);
+
+    // Upload 13 thumbnails so the generate path is enabled.
+    const zone = screen.getByRole('button', { name: /upload images/i });
+    await act(async () => {
+      dispatchDrop(zone, makeUploadFiles(13));
+      await flushMicrotasks();
+    });
+
+    // Upload a back image via the new CardBack section. The section exposes
+    // a file input via the accessible label "Card back image".
+    const backInput = screen.getByLabelText(
+      /card back image/i,
+    ) as HTMLInputElement;
+    const backFile = new File([new Uint8Array([9, 9, 9])], 'back.png', {
+      type: 'image/png',
+    });
+    await act(async () => {
+      await userEvent.upload(backInput, backFile);
+      // Image load is queued on a microtask by the test setup's MockImage.
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+
+    // Generate to populate renderedCards.
+    const generateButton = await screen.findByRole('button', {
+      name: /^generate$/i,
+    });
+    await act(async () => {
+      await userEvent.click(generateButton);
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+
+    // Click Download PDF.
+    const downloadButton = screen.getByRole('button', {
+      name: /download pdf/i,
+    });
+    await act(async () => {
+      await userEvent.click(downloadButton);
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+
+    // buildPdf must have been called with a non-null backImage whose pngBytes
+    // are a Uint8Array (the composed PNG). We can't byte-equal the bytes
+    // because composeBackImageCanvas runs through the same toBlob stub that
+    // returns ONE_PIXEL_PNG_BYTES — but we can assert the type contract.
+    expect(buildPdfMock).toHaveBeenCalled();
+    const lastCall = buildPdfMock.mock.calls.at(-1)!;
+    const [, , backImageArg] = lastCall;
+    expect(backImageArg).not.toBeNull();
+    expect(backImageArg!.pngBytes).toBeInstanceOf(Uint8Array);
+    expect(backImageArg!.pngBytes.byteLength).toBeGreaterThan(0);
+  });
+
+  it('Download PDF passes backImage=null when the user has not uploaded a back image', async () => {
+    const { App } = await import('./App');
+    const buildPdfModule = await import('./render/buildPdf');
+    const buildPdfMock = vi.mocked(buildPdfModule.buildPdf);
+    buildPdfMock.mockClear();
+
+    render(<App />);
+
+    const zone = screen.getByRole('button', { name: /upload images/i });
+    await act(async () => {
+      dispatchDrop(zone, makeUploadFiles(13));
+      await flushMicrotasks();
+    });
+    const generateButton = await screen.findByRole('button', {
+      name: /^generate$/i,
+    });
+    await act(async () => {
+      await userEvent.click(generateButton);
+      await flushMicrotasks();
+      await flushMicrotasks();
+    });
+    const downloadButton = screen.getByRole('button', {
+      name: /download pdf/i,
+    });
+    await act(async () => {
+      await userEvent.click(downloadButton);
+      await flushMicrotasks();
+    });
+    expect(buildPdfMock).toHaveBeenCalled();
+    const lastCall = buildPdfMock.mock.calls.at(-1)!;
+    const [, , backImageArg] = lastCall;
+    expect(backImageArg).toBeNull();
   });
 });
 

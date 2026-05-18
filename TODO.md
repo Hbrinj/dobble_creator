@@ -31,3 +31,8 @@ Items deferred as out-of-scope from feature planning. Triage manually.
 | Card-back image silhouette geometry | Card-back is drawn full-bleed by `buildPdf` and never passes through `packCircles` or `drawCard`'s slot loop — no consumer for silhouette data | Decision 12 | 2026-05-14 | Open |
 | Follow-on tuning of `PACKING_FRACTION` from 0.65 toward 0.70 / 0.75 | Slice 4 of feature/alpha-aware-packing (2026-05-15) introduces convergence detection + retry-with-fresh-seed (named `PackingDidNotConvergeError`, `MAX_RETRIES = 8`, `OVERLAP_TOLERANCE = 1e-4`); pushing density past 0.65 is now an isolated experiment with its own perf / retry-budget analysis | Decision 10 | 2026-05-14 | Open |
 | Per-image silhouette debug overlay (visualise the silhouette circle on each thumbnail or rendered card) | Useful for sanity-checking Welzl results visually but not necessary for the user-facing fix; can land later if silhouette quality regressions appear | — | 2026-05-14 | Open |
+
+## From feature/back-image-placement
+| Item | Why deferred | Related decision | Added | Status |
+|------|--------------|------------------|-------|--------|
+| Touch / pinch-zoom support for back-image placement | Desktop creator app; touch is not the primary surface. Avoid the bad-UX middle state of "pan works but zoom doesn't" by deferring both together to a focused follow-up. | Decision 9 | 2026-05-18 | Open |

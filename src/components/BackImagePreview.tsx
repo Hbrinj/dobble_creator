@@ -137,7 +137,8 @@ export function BackImagePreview({
     (event: ReactWheelEvent<HTMLCanvasElement>) => {
       if (!image) return;
       event.preventDefault();
-      const factor = event.deltaY < 0 ? WHEEL_ZOOM_FACTOR : 1 / WHEEL_ZOOM_FACTOR;
+      const factor =
+        event.deltaY < 0 ? WHEEL_ZOOM_FACTOR : 1 / WHEEL_ZOOM_FACTOR;
       const requestedScale = placement.scale * factor;
       const nextScale = clampScale(requestedScale, fillScale);
       // If the clamp pinned the scale (e.g. already at MAX), the offset must
@@ -146,10 +147,8 @@ export function BackImagePreview({
       const appliedFactor =
         placement.scale > 0 ? nextScale / placement.scale : 1;
       const rect = event.currentTarget.getBoundingClientRect();
-      const cursorXRel =
-        event.clientX - rect.left - PREVIEW_DIAMETER_PX / 2;
-      const cursorYRel =
-        event.clientY - rect.top - PREVIEW_DIAMETER_PX / 2;
+      const cursorXRel = event.clientX - rect.left - PREVIEW_DIAMETER_PX / 2;
+      const cursorYRel = event.clientY - rect.top - PREVIEW_DIAMETER_PX / 2;
       // Cursor-centred zoom: the canvas point under the cursor must stay
       // anchored to the same source pixel after the scale change.
       //   offset_new = cursorRel + appliedFactor * (offset_old - cursorRel)
@@ -169,7 +168,14 @@ export function BackImagePreview({
         offsetY: clamped.offsetY,
       });
     },
-    [fillScale, image, onChange, placement.offsetX, placement.offsetY, placement.scale],
+    [
+      fillScale,
+      image,
+      onChange,
+      placement.offsetX,
+      placement.offsetY,
+      placement.scale,
+    ],
   );
 
   const cursor = !image ? 'default' : isDragging ? 'grabbing' : 'grab';
@@ -190,5 +196,3 @@ export function BackImagePreview({
     />
   );
 }
-
-export const _PREVIEW_DIAMETER_PX_FOR_TEST = PREVIEW_DIAMETER_PX;

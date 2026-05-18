@@ -70,12 +70,7 @@ describe('clampPan', () => {
   const image = { width: 200, height: 100 };
 
   it('passes a small offset through unchanged', () => {
-    const out = clampPan(
-      { offsetX: 10, offsetY: 5 },
-      1,
-      image,
-      200,
-    );
+    const out = clampPan({ offsetX: 10, offsetY: 5 }, 1, image, 200);
     expect(out).toEqual({ offsetX: 10, offsetY: 5 });
   });
 

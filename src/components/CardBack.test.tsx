@@ -64,8 +64,7 @@ const flushMicrotasks = (): Promise<void> =>
 const makePngFile = (
   name: string,
   bytes: readonly number[] = [1, 2, 3],
-): File =>
-  new File([new Uint8Array(bytes)], name, { type: 'image/png' });
+): File => new File([new Uint8Array(bytes)], name, { type: 'image/png' });
 
 describe('CardBack', () => {
   it('renders an empty-state dropzone when no image is loaded', () => {
@@ -77,7 +76,9 @@ describe('CardBack', () => {
     // No preview canvas yet.
     expect(document.querySelector('canvas')).toBeNull();
     // No Reset button yet.
-    expect(screen.queryByRole('button', { name: /reset placement/i })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /reset placement/i }),
+    ).toBeNull();
   });
 
   it('renders within a titled card with a "Card back" h2 heading', () => {
@@ -129,7 +130,9 @@ describe('CardBack', () => {
       await flushMicrotasks();
     });
     onChange.mockClear();
-    const resetButton = screen.getByRole('button', { name: /reset placement/i });
+    const resetButton = screen.getByRole('button', {
+      name: /reset placement/i,
+    });
     await userEvent.click(resetButton);
     expect(onChange).toHaveBeenCalled();
     const last = onChange.mock.calls.at(-1)![1] as BackImagePlacement;
@@ -138,7 +141,7 @@ describe('CardBack', () => {
     expect(last.offsetY).toBe(0);
   });
 
-  it('uploading a second different-sized file resets placement to *that* file\'s fill-default', async () => {
+  it("uploading a second different-sized file resets placement to *that* file's fill-default", async () => {
     const onChange = vi.fn();
     render(<CardBack onChange={onChange} />);
     const input = screen.getByLabelText(/card back image/i) as HTMLInputElement;

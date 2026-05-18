@@ -15,10 +15,7 @@ import {
 
 const PREVIEW_DIAMETER_PX = 320;
 
-const fillDefault = (
-  width: number,
-  height: number,
-): BackImagePlacement => ({
+const fillDefault = (width: number, height: number): BackImagePlacement => ({
   scale: computeFillScale(width, height, PREVIEW_DIAMETER_PX),
   offsetX: 0,
   offsetY: 0,
@@ -162,9 +159,7 @@ export function CardBack({ onChange }: CardBackProps): JSX.Element {
           className="min-h-48 w-full flex flex-col items-center justify-center gap-2 text-center px-6 py-8 border-2 border-dashed rounded-xl bg-slate-900 cursor-pointer transition-[transform,background-color,border-color] duration-150 border-slate-700 hover:border-slate-500 focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2"
         >
           <UploadCloud aria-hidden="true" className="size-8 text-slate-400" />
-          <p className="text-slate-100">
-            Upload a card-back image
-          </p>
+          <p className="text-slate-100">Upload a card-back image</p>
           <p className="text-sm text-slate-400">
             PNG, JPEG, or WebP. Scale and pan after upload.
           </p>

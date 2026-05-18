@@ -16,6 +16,7 @@ import {
 } from './components/ThumbnailGrid';
 import { DeckSettings } from './components/DeckSettings';
 import { PrintSettings } from './components/PrintSettings';
+import { CardBack } from './components/CardBack';
 import {
   DEFAULT_PRINT_SETTINGS,
   type PrintSettingsValue,
@@ -36,6 +37,8 @@ import {
   type CardImage,
   type PrintSettings as BuildPdfSettings,
 } from './render/buildPdf';
+import { composeBackImageCanvas } from './render/composeBackImageCanvas';
+import type { BackImagePlacement } from './render/backImagePlacement';
 
 interface UploadedImage {
   readonly id: string;
@@ -53,6 +56,17 @@ interface RenderedCard {
 
 const CARD_RENDER_PX = 1000;
 const INITIAL_SEED = 1;
+// Composer diameter for the PDF back image: matches the canvas pixel size
+// used for the front cards so the composed PNG has equivalent resolution.
+// pdf-lib stretches the embedded image to (cardDiameter + 2×bleed) at print
+// time — we mirror that aspect by composing into a single square canvas of
+// the same pixel count and letting the circular clip live at radius = half
+// the composer diameter (Decision 11: bleed-aware clip).
+const BACK_COMPOSE_PX = CARD_RENDER_PX;
+// The BackImagePreview renders at this many pixels; the App scales the
+// placement up by (BACK_COMPOSE_PX / BACK_PREVIEW_PX) so the composed PDF
+// PNG carries the same crop/zoom the user dialled in at preview size.
+const BACK_PREVIEW_PX = 320;
 
 const loadImage = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
@@ -99,7 +113,19 @@ export function App(): JSX.Element {
   const [printSettings, setPrintSettings] = useState<PrintSettingsValue>(
     DEFAULT_PRINT_SETTINGS,
   );
-  const [backImageFile, setBackImageFile] = useState<File | null>(null);
+  const [backImage, setBackImage] = useState<HTMLImageElement | null>(null);
+  const [backPlacement, setBackPlacement] = useState<BackImagePlacement>({
+    scale: 0,
+    offsetX: 0,
+    offsetY: 0,
+  });
+  const handleBackChange = useCallback(
+    (image: HTMLImageElement | null, placement: BackImagePlacement) => {
+      setBackImage(image);
+      setBackPlacement(placement);
+    },
+    [],
+  );
   const [renderedCards, setRenderedCards] = useState<readonly RenderedCard[]>(
     [],
   );
@@ -336,12 +362,27 @@ export function App(): JSX.Element {
       bleed: printSettings.bleed,
       background: printSettings.background,
     };
-    const backImage = backImageFile
-      ? {
-          pngBytes: new Uint8Array(await backImageFile.arrayBuffer()),
-        }
-      : null;
-    const bytes = await buildPdf(cards, pdfSettings, backImage);
+    // Compose the back image at export time using the same helper the live
+    // preview draws with — single source of truth (Decision 5). The composer
+    // diameter scales the placement (which is in 320-px preview units) up to
+    // the BACK_COMPOSE_PX render resolution so the composed PNG carries the
+    // same crop/zoom the user dialled in.
+    let composedBack: { pngBytes: Uint8Array } | null = null;
+    if (backImage) {
+      const scaleUp = BACK_COMPOSE_PX / BACK_PREVIEW_PX;
+      const renderPlacement: BackImagePlacement = {
+        scale: backPlacement.scale * scaleUp,
+        offsetX: backPlacement.offsetX * scaleUp,
+        offsetY: backPlacement.offsetY * scaleUp,
+      };
+      const composed = composeBackImageCanvas(
+        backImage,
+        renderPlacement,
+        BACK_COMPOSE_PX,
+      );
+      composedBack = { pngBytes: await canvasToPngBytes(composed) };
+    }
+    const bytes = await buildPdf(cards, pdfSettings, composedBack);
     // Copy into a fresh ArrayBuffer-backed Uint8Array; pdf-lib's signature is
     // `Uint8Array<ArrayBufferLike>` which Blob's BlobPart does not accept
     // directly (SharedArrayBuffer is excluded). The copy keeps the type narrow.
@@ -359,7 +400,8 @@ export function App(): JSX.Element {
     // simplest reliable cleanup is on the next macrotask.
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }, [
-    backImageFile,
+    backImage,
+    backPlacement,
     printSettings.background,
     printSettings.bleed,
     printSettings.cardDiameterMm,
@@ -430,12 +472,9 @@ export function App(): JSX.Element {
           />
         ) : null}
 
-        <PrintSettings
-          value={printSettings}
-          backImage={backImageFile}
-          onChange={setPrintSettings}
-          onBackImageChange={setBackImageFile}
-        />
+        <PrintSettings value={printSettings} onChange={setPrintSettings} />
+
+        <CardBack onChange={handleBackChange} />
 
         {renderedCards.length > 0 ? (
           <section
