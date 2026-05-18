@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { drawCard, type DrawCardOptions, type SymbolImage } from './drawCard';
+import {
+  drawCard,
+  computeInsetFraction,
+  type DrawCardOptions,
+  type SymbolImage,
+} from './drawCard';
 import type { PackedCircle } from '../lib/packer';
 
 const DEFAULT_SILHOUETTE = { cx: 0.5, cy: 0.5, r: 0.5 } as const;
@@ -49,14 +54,24 @@ const makeStubContext = (): {
 
 const makeStubCanvas = (
   size: number,
-): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; calls: string[]; drawImageArgs: unknown[][] } => {
+): {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  calls: string[];
+  drawImageArgs: unknown[][];
+} => {
   const stub = makeStubContext();
   const canvas = {
     width: size,
     height: size,
     getContext: vi.fn(() => stub.ctx),
   } as unknown as HTMLCanvasElement;
-  return { canvas, ctx: stub.ctx, calls: stub.calls, drawImageArgs: stub.drawImageArgs };
+  return {
+    canvas,
+    ctx: stub.ctx,
+    calls: stub.calls,
+    drawImageArgs: stub.drawImageArgs,
+  };
 };
 
 const makeSymbol = (
@@ -83,7 +98,13 @@ describe('drawCard', () => {
   it('draws an image once per packed circle', () => {
     const { canvas, calls } = makeStubCanvas(1000);
     const symbols = [makeSymbol('a'), makeSymbol('b'), makeSymbol('c')];
-    drawCard(canvas, symbols, stubPacking, [0, Math.PI / 4, Math.PI / 2], baseOptions);
+    drawCard(
+      canvas,
+      symbols,
+      stubPacking,
+      [0, Math.PI / 4, Math.PI / 2],
+      baseOptions,
+    );
     const drawImageCount = calls.filter((c) => c === 'drawImage').length;
     expect(drawImageCount).toBe(3);
   });
@@ -93,7 +114,16 @@ describe('drawCard', () => {
     const symbols = [makeSymbol('a'), makeSymbol('b'), makeSymbol('c')];
     drawCard(canvas, symbols, stubPacking, [0, 0, 0], baseOptions);
     // For each symbol we expect at minimum these calls in order: save, beginPath, arc, clip, translate, rotate, drawImage, restore
-    const expectedPattern = ['save', 'beginPath', 'arc', 'clip', 'translate', 'rotate', 'drawImage', 'restore'];
+    const expectedPattern = [
+      'save',
+      'beginPath',
+      'arc',
+      'clip',
+      'translate',
+      'rotate',
+      'drawImage',
+      'restore',
+    ];
     for (let i = 0; i < 3; i++) {
       // find the i-th drawImage and inspect the surrounding sequence
       const drawIdx = calls.reduce<number[]>((acc, c, idx) => {
@@ -187,7 +217,7 @@ describe('drawCard', () => {
     expect(drawH as number).toBeGreaterThan(0);
   });
 
-  it("draws each image scaled and positioned so its silhouette circle maps to the slot circle", () => {
+  it('draws each image scaled and positioned so its silhouette circle maps to the slot circle', () => {
     // Single-slot fixture: slot at (0.3, 0.4) with radius 0.2 in parent-unit
     // frame (parent radius = 1). On a 1000px canvas the slot maps to:
     //   slotCxPx = 500 + 0.3 * 500 = 650
@@ -224,5 +254,27 @@ describe('drawCard', () => {
     expect(drawY as number).toBeCloseTo(expectedDrawY, 5);
     expect(drawW as number).toBeCloseTo(expectedDrawW, 5);
     expect(drawH as number).toBeCloseTo(expectedDrawH, 5);
+  });
+});
+
+describe('computeInsetFraction', () => {
+  it('returns marginMm / (diameterMm / 2) for the canonical 80mm + 5mm case', () => {
+    // 5 / 40 = 0.125 — the headline example from Slice 3.
+    expect(computeInsetFraction(80, 5)).toBeCloseTo(0.125, 9);
+  });
+
+  it('matches the documented examples across the diameter range', () => {
+    expect(computeInsetFraction(85, 5)).toBeCloseTo(5 / 42.5, 9);
+    expect(computeInsetFraction(60, 5)).toBeCloseTo(5 / 30, 9);
+    expect(computeInsetFraction(100, 5)).toBeCloseTo(5 / 50, 9);
+  });
+
+  it('returns 0 when the margin is 0 (opt-out path)', () => {
+    expect(computeInsetFraction(85, 0)).toBe(0);
+  });
+
+  it('defensively returns 0 for non-positive diameter (edge case)', () => {
+    expect(computeInsetFraction(0, 5)).toBe(0);
+    expect(computeInsetFraction(-1, 5)).toBe(0);
   });
 });

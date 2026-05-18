@@ -27,6 +27,22 @@ export interface DrawCardOptions {
 }
 
 /**
+ * Convert a physical inner-margin in millimetres to the dimensionless inset
+ * fraction the packer expects (where the parent disc has radius 1). The
+ * fraction is `marginMm / (diameterMm / 2)`. Guarded for `diameterMm <= 0` so
+ * a transiently-zeroed setting cannot produce a NaN/Infinity that would
+ * corrupt the packer's boundary checks — the fallback `0` reproduces the
+ * pre-feature no-margin behaviour exactly.
+ */
+export function computeInsetFraction(
+  diameterMm: number,
+  marginMm: number,
+): number {
+  if (!(diameterMm > 0)) return 0;
+  return marginMm / (diameterMm / 2);
+}
+
+/**
  * Draw a Dobble card onto `canvas`:
  *   - clear, then optionally fill the background
  *   - for each (symbol, packing, rotation) triplet: save, clip to the packed

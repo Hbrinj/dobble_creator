@@ -122,4 +122,35 @@ describe('packCircles', () => {
     expect(() => packCircles(0, mulberry32(0))).toThrow();
     expect(() => packCircles(-1, mulberry32(0))).toThrow();
   });
+
+  describe('insetFraction', () => {
+    it('keeps every circle inside the inset boundary (1 - insetFraction) at k=8 across 50 seeds', () => {
+      const inset = 0.15;
+      const effective = 1 - inset;
+      for (let s = 0; s < 50; s++) {
+        const rng = mulberry32(s);
+        const circles = packCircles(8, rng, inset);
+        expect(circles.length).toBe(8);
+        for (const c of circles) {
+          // Hard boundary: centre distance + radius must not exceed the
+          // (1 - insetFraction) effective parent radius beyond float noise.
+          expect(Math.hypot(c.x, c.y) + c.r).toBeLessThanOrEqual(
+            effective + EPS,
+          );
+          expect(c.r).toBeGreaterThan(0);
+        }
+      }
+    });
+
+    it('produces byte-identical output to the no-arg call when insetFraction is 0 (regression guard)', () => {
+      // The no-margin path must compute exactly the same baseRadius and apply
+      // exactly the same boundary checks as the pre-feature implementation —
+      // this guards the deterministic seed contract for users who opt out.
+      const k = 8;
+      const seed = 123;
+      const withoutArg = packCircles(k, mulberry32(seed));
+      const withZero = packCircles(k, mulberry32(seed), 0);
+      expect(withZero).toEqual(withoutArg);
+    });
+  });
 });

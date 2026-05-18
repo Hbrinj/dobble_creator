@@ -7,6 +7,10 @@ import userEvent from '@testing-library/user-event';
 // dedicated tests in src/render/).
 vi.mock('./render/drawCard', () => ({
   drawCard: vi.fn(() => undefined),
+  // Mirror the real helper so App's insetFraction wiring sees the same value
+  // production code would (App passes it to the mocked packCircles).
+  computeInsetFraction: (diameterMm: number, marginMm: number) =>
+    diameterMm > 0 ? marginMm / (diameterMm / 2) : 0,
 }));
 
 // Hoisted handle so individual tests can swap the packer's behaviour at
@@ -14,7 +18,11 @@ vi.mock('./render/drawCard', () => ({
 // App-level catch path).
 const packCirclesMock = vi.hoisted(() =>
   vi.fn<
-    (k: number, rng: () => number) => { x: number; y: number; r: number }[]
+    (
+      k: number,
+      rng: () => number,
+      insetFraction?: number,
+    ) => { x: number; y: number; r: number }[]
   >((k) =>
     Array.from({ length: k }, (_, i) => ({
       x: 0,

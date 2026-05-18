@@ -1,6 +1,8 @@
 import { useCallback, useRef, type ChangeEvent, type JSX } from 'react';
 import {
+  MAX_CARD_EDGE_MARGIN_MM,
   MAX_DIAMETER_MM,
+  MIN_CARD_EDGE_MARGIN_MM,
   MIN_DIAMETER_MM,
   type PrintSettingsValue,
 } from './printSettingsTypes';
@@ -47,6 +49,19 @@ export function PrintSettings({
         Math.min(MAX_DIAMETER_MM, parsed),
       );
       update('cardDiameterMm', clamped);
+    },
+    [update],
+  );
+
+  const handleEdgeMarginChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const parsed = Number.parseInt(event.target.value, 10);
+      if (!Number.isInteger(parsed)) return;
+      const clamped = Math.max(
+        MIN_CARD_EDGE_MARGIN_MM,
+        Math.min(MAX_CARD_EDGE_MARGIN_MM, parsed),
+      );
+      update('cardEdgeMarginMm', clamped);
     },
     [update],
   );
@@ -119,6 +134,22 @@ export function PrintSettings({
           step={1}
           value={value.cardDiameterMm}
           onChange={handleDiameterChange}
+          className="accent-amber-500"
+        />
+      </div>
+
+      <div className={rowClasses}>
+        <label htmlFor="print-settings-edge-margin" className={labelClasses}>
+          Edge margin (mm): {value.cardEdgeMarginMm}
+        </label>
+        <input
+          id="print-settings-edge-margin"
+          type="range"
+          min={MIN_CARD_EDGE_MARGIN_MM}
+          max={MAX_CARD_EDGE_MARGIN_MM}
+          step={1}
+          value={value.cardEdgeMarginMm}
+          onChange={handleEdgeMarginChange}
           className="accent-amber-500"
         />
       </div>
