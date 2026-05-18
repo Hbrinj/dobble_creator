@@ -13,6 +13,7 @@ import {
   PREVIEW_DIAMETER_PX,
   type BackImagePlacement,
 } from '../render/backImagePlacement';
+import { validateBackImageFile } from '../render/backImageValidation';
 
 const fillDefault = (width: number, height: number): BackImagePlacement => ({
   scale: computeFillScale(width, height, PREVIEW_DIAMETER_PX),
@@ -76,6 +77,32 @@ export function CardBack({ onChange }: CardBackProps): JSX.Element {
     };
   }, []);
 
+  // Shared load path for both the click-to-browse picker and (in Slice 2) the
+  // drag-drop surface. Validation runs FIRST so an invalid file never reaches
+  // the URL/Image side effects. The warning emit is deferred until the
+  // `onWarning` prop is added in Slice 2; for now invalid files are silently
+  // dropped on the floor (the `<input accept>` attribute already blocks them
+  // at the picker level, and drag-drop does not exist yet).
+  const loadFileIntoState = useCallback((file: File): void => {
+    const validation = validateBackImageFile(file);
+    if (!validation.ok) {
+      return;
+    }
+    // Revoke the previous URL before minting the new one.
+    if (currentObjectUrlRef.current) {
+      URL.revokeObjectURL(currentObjectUrlRef.current);
+      currentObjectUrlRef.current = null;
+    }
+    const url = URL.createObjectURL(file);
+    currentObjectUrlRef.current = url;
+    const next = new Image();
+    next.onload = (): void => {
+      setImage(next);
+      setPlacement(fillDefault(next.width, next.height));
+    };
+    next.src = url;
+  }, []);
+
   const handleFileChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0] ?? null;
@@ -83,21 +110,9 @@ export function CardBack({ onChange }: CardBackProps): JSX.Element {
       // Reset the input value so re-selecting the same file fires a change.
       // Guarded above so a cancelled picker does not mutate the input value.
       event.target.value = '';
-      // Revoke the previous URL before minting the new one.
-      if (currentObjectUrlRef.current) {
-        URL.revokeObjectURL(currentObjectUrlRef.current);
-        currentObjectUrlRef.current = null;
-      }
-      const url = URL.createObjectURL(file);
-      currentObjectUrlRef.current = url;
-      const next = new Image();
-      next.onload = (): void => {
-        setImage(next);
-        setPlacement(fillDefault(next.width, next.height));
-      };
-      next.src = url;
+      loadFileIntoState(file);
     },
-    [],
+    [loadFileIntoState],
   );
 
   const handleReset = useCallback(() => {
