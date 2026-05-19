@@ -482,7 +482,7 @@ export function App(): JSX.Element {
 
         <PrintSettings value={printSettings} onChange={setPrintSettings} />
 
-        <CardBack onChange={handleBackChange} />
+        <CardBack onChange={handleBackChange} onWarning={handleWarning} />
 
         {renderedCards.length > 0 ? (
           <section
